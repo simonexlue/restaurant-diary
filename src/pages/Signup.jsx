@@ -153,7 +153,7 @@ export default function Signup() {
                         {errorMessage && <p className="mb-4 text-sm text-red-600">{errorMessage}</p>}
                         {successMessage && <p className="mb-4 text-sm text-green-600">{successMessage}</p>}
 
-                        <button type="submit" disabled={loading} className="mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">
+                        <button type="submit" disabled={loading} className="mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer disabled:cursor-not-allowed">
                             {loading ? "Creating Account..." : "Create Account"}
                         </button>
 
