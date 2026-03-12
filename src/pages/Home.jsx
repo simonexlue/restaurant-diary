@@ -14,7 +14,7 @@ export default function Home() {
     }
 
     return (
-        <div className="px-4 py-6 lg:px-6 py-7">
+        <div>
             <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start">
                 <div className="flex flex-col gap-1">
                     <p className="text-3xl text-bold text-stone-700">Welcome back</p>
