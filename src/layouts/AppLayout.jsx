@@ -5,7 +5,7 @@ export default function AppLayout() {
     return (
         <div>
             <TopNavigation />
-            <main>
+            <main className="bg-[rgb(248,245,242)] h-screen">
                 <Outlet />
             </main>
         </div>
