@@ -2,48 +2,60 @@ import image from "../assets/auth-hero.jpg";
 
 export default function Login() {
     return (
-        <div className="w-screen h-screen flex flex-row bg-stone-100">
-            {/* Image side */}
-            <div className="w-1/2">
-                <img className="object-cover h-screen" src={image} />
+        <div className="relative min-h-screen w-screen bg-stone-100 xl:flex xl:flex-row">
+            {/* Background image for small/md/lg */}
+            <div className="absolute inset-0 xl:hidden">
+                <img src={image} className="h-full w-full object-cover" />
             </div>
 
+            {/* Left image side for xl+ */}
+            <div className="hidden xl:block xl:w-1/2">
+                <img src={image} className="h-screen w-full object-cover" />
+            </div>
 
-            {/* Login side */}
-            <div className="w-1/2 flex flex-col justify-center items-center ">
-                <div className="w-2/3">
-                    <h4 className="text-3xl font-semibold text-left mb-3 text-stone-700">Welcome Back</h4>
-                    <p className="text-stone-500 text-md mb-3">Sign in to continue</p>
+            {/* Form side */}
+            <div className="relative z-10 flex min-h-screen w-full items-center justify-center xl:w-1/2 xl:bg-stone-100">
+                <div className="w-[85%] max-w-md rounded-xl bg-stone-100 p-8 shadow-lg sm:w-[75%] md:w-[65%] lg:w-[55%] xl:w-[75%] xl:max-w-none xl:rounded-none xl:bg-transparent xl:p-0 xl:shadow-none">
+                    <h4 className="mb-3 text-left text-3xl font-semibold text-stone-700">
+                        Welcome Back
+                    </h4>
 
-                    <div className="border-b-1 border-stone-300 h-4 w-full mb-3" />
+                    <p className="mb-3 text-md text-stone-500">Sign in to continue</p>
 
-                    {/* Form */}
-                    <form className="flex flex-col mt-10">
+                    <div className="mb-3 h-4 w-full border-b border-stone-300" />
+
+                    <form className="mt-10 flex flex-col">
                         <div className="mb-4">
-                            <label className="block text-stone-700 mb-2">
-                                Email
-                            </label>
-                            <input type="email" placeholder="you@example.com" className="border border-gray-300 rounded-md w-full h-10 bg-white px-3" />
+                            <label className="mb-2 block text-stone-700">Email</label>
+                            <input
+                                type="email"
+                                placeholder="you@example.com"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                            />
                         </div>
-
 
                         <div className="mb-6">
-                            <label className="block text-stone-700 mb-2">
-                                Password
-                            </label>
-                            <input type="password" placeholder="********" className="border border-gray-300 rounded-md w-full h-10 bg-white px-3" />
+                            <label className="mb-2 block text-stone-700">Password</label>
+                            <input
+                                type="password"
+                                placeholder="********"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                            />
                         </div>
 
-                        <button className="bg-[rgb(203,84,51)] rounded-md text-white text-sm py-2 mb-4 h-10">Sign In</button>
+                        <button className="mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white">
+                            Sign In
+                        </button>
 
-                        <div className="text-stone-500 flex gap-1 justify-center mt-4">
+                        <div className="mt-4 flex justify-center gap-1 text-stone-500">
                             <p>Don't have an account?</p>
-                            <a href="/" className="text-[rgb(203,84,51)]">Sign up free</a>
+                            <a href="/" className="text-[rgb(203,84,51)]">
+                                Sign up
+                            </a>
                         </div>
-
                     </form>
                 </div>
             </div>
         </div>
-    )
+    );
 }
