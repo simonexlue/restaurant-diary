@@ -1,6 +1,7 @@
 import { useState } from "react";
 import image from "../assets/auth-hero.jpg";
 import { supabase } from "../lib/supabase";
+import { Link } from "react-router-dom";
 
 export default function Signup() {
     const [fullName, setFullName] = useState("")
@@ -17,7 +18,7 @@ export default function Signup() {
             email: email,
             password: password,
             options: {
-                // emailRedirectTo: "",
+                emailRedirectTo: `${window.location.origin}/login`,
                 data: {
                     username,
                     display_name: fullName
@@ -158,9 +159,9 @@ export default function Signup() {
 
                         <div className="mt-4 flex justify-center gap-1 text-stone-500">
                             <p>Have an account?</p>
-                            <a href="/" className="text-[rgb(203,84,51)]">
+                            <Link to="/login" className="text-[rgb(203,84,51)]">
                                 Sign in
-                            </a>
+                            </Link>
                         </div>
                     </form>
                 </div>

@@ -1,4 +1,5 @@
 import image from "../assets/auth-hero.jpg";
+import { Link } from "react-router-dom";
 
 export default function Login() {
     return (
@@ -49,9 +50,9 @@ export default function Login() {
 
                         <div className="mt-4 flex justify-center gap-1 text-stone-500">
                             <p>Don't have an account?</p>
-                            <a href="/" className="text-[rgb(203,84,51)]">
+                            <Link to="/signup" className="text-[rgb(203,84,51)]">
                                 Sign up
-                            </a>
+                            </Link>
                         </div>
                     </form>
                 </div>
