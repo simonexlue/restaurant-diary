@@ -74,3 +74,33 @@ export async function createManualRestaurant({ name, address, lat, lng }) {
 
   return data;
 }
+
+export async function saveGoogleRestaurantIfNotExists({
+  google_place_id,
+  name,
+  address,
+  lat,
+  lng,
+}) {
+  const existingRestaurant = await findRestaurantByGooglePlaceId(google_place_id);
+
+  if (existingRestaurant) {
+    return {
+      restaurant: existingRestaurant,
+      alreadyExists: true,
+    };
+  }
+
+  const newRestaurant = await createGoogleRestaurant({
+    google_place_id,
+    name,
+    address,
+    lat,
+    lng,
+  });
+
+  return {
+    restaurant: newRestaurant,
+    alreadyExists: false,
+  };
+}
