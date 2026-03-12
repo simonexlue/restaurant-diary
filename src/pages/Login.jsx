@@ -16,15 +16,15 @@ export default function Login() {
             {/* Form side */}
             <div className="relative z-10 flex min-h-screen w-full items-center justify-center xl:w-1/2 xl:bg-stone-100">
                 <div className="w-[85%] max-w-md rounded-xl bg-stone-100 p-8 shadow-lg sm:w-[75%] md:w-[65%] lg:w-[55%] xl:w-[75%] xl:max-w-none xl:rounded-none xl:bg-transparent xl:p-0 xl:shadow-none">
-                    <h4 className="mb-3 text-left text-3xl font-semibold text-stone-700">
+                    <h4 className="mb-0 sm:mb-3 text-left text-3xl font-semibold text-stone-700">
                         Welcome Back
                     </h4>
 
-                    <p className="mb-3 text-md text-stone-500">Sign in to continue</p>
+                    <p className="hidden sm:block sm:mb-3 text-md text-stone-500">Sign in to continue</p>
 
                     <div className="mb-3 h-4 w-full border-b border-stone-300" />
 
-                    <form className="mt-10 flex flex-col">
+                    <form className="mt-5 flex flex-col">
                         <div className="mb-4">
                             <label className="mb-2 block text-stone-700">Email</label>
                             <input
