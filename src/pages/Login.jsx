@@ -30,7 +30,7 @@ export default function Login() {
                             <input
                                 type="email"
                                 placeholder="you@example.com"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)]"
                             />
                         </div>
 
@@ -39,7 +39,7 @@ export default function Login() {
                             <input
                                 type="password"
                                 placeholder="********"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)] hover:cursor-pointer"
                             />
                         </div>
 

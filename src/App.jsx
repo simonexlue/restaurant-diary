@@ -5,7 +5,7 @@ import Signup from "./pages/Signup";
 export default function App() {
   return (
     <div>
-      <Login />
+      <Signup />
     </div>
   );
 }

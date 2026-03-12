@@ -1,6 +1,86 @@
+import { useState } from "react";
 import image from "../assets/auth-hero.jpg";
+import { supabase } from "../lib/supabase";
 
 export default function Signup() {
+    const [fullName, setFullName] = useState("")
+    const [username, setUserName] = useState("")
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
+
+    const [loading, setLoading] = useState(false)
+    const [errorMessage, setErrorMessage] = useState("")
+    const [successMessage, setSuccessMessage] = useState("")
+
+    async function signUpNewUser({ fullName, username, email, password }) {
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                // emailRedirectTo: "",
+                data: {
+                    username,
+                    display_name: fullName
+                }
+            }
+        })
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.user) {
+            throw new Error("User account was not created.");
+        }
+
+        return data
+    }
+
+    async function handleCreate(e) {
+        e.preventDefault()
+
+        setErrorMessage("")
+        setSuccessMessage("")
+
+        // Validation
+        if (!fullName.trim() || !username.trim() || !email.trim() || !password.trim()) {
+            setErrorMessage("Please fill in all fields.");
+            return;
+        }
+
+        if (password.length < 8) {
+            setErrorMessage("Password must be at least 8 characters.");
+            return;
+        }
+
+        try {
+            setLoading(true)
+
+            const data = await signUpNewUser({
+                fullName: fullName.trim(),
+                username: username.trim(),
+                email: email.trim(),
+                password,
+            })
+
+            setFullName("")
+            setUserName("")
+            setEmail("")
+            setPassword("")
+
+            if (data.session) {
+                setSuccessMessage("Account created successfully!")
+            } else {
+                setSuccessMessage("Account created. Check your email to confirm.")
+            }
+        } catch (error) {
+            setErrorMessage(error.message || "Something went wrong.")
+        } finally {
+            setLoading(false)
+        }
+
+    }
+
     return (
         <div className="relative min-h-screen w-screen bg-stone-100 xl:flex xl:flex-row">
             {/* Background image for small/md/lg */}
@@ -24,31 +104,37 @@ export default function Signup() {
 
                     <div className="mb-3 h-4 w-full border-b border-stone-300" />
 
-                    <form className="mt-2 md:mt-5 flex flex-col">
+                    <form className="mt-2 md:mt-5 flex flex-col" onSubmit={handleCreate} >
                         <div className="mb-4">
-                            <label className="mb-2 block text-stone-700">First name</label>
+                            <label className="mb-2 block text-stone-700">Full Name</label>
                             <input
                                 type="text"
-                                placeholder="Jane"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                placeholder="Jane Doe"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)]"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
                             />
                         </div>
 
                         <div className="mb-4">
-                            <label className="mb-2 block text-stone-700">Last name</label>
+                            <label className="mb-2 block text-stone-700">Username</label>
                             <input
                                 type="text"
-                                placeholder="Doe"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                placeholder="janedoe123"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)]"
+                                value={username}
+                                onChange={(e) => setUserName(e.target.value)}
                             />
                         </div>
 
                         <div className="mb-4">
-                            <label className="mb-2 block text-stone-700">Last name</label>
+                            <label className="mb-2 block text-stone-700">Email</label>
                             <input
                                 type="email"
                                 placeholder="you@example.com"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)]"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
 
@@ -57,12 +143,17 @@ export default function Signup() {
                             <input
                                 type="password"
                                 placeholder="********"
-                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3"
+                                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 focus:outline-[rgb(203,84,51)]"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
 
-                        <button className="mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white">
-                            Create Account
+                        {errorMessage && <p className="mb-4 text-sm text-red-600">{errorMessage}</p>}
+                        {successMessage && <p className="mb-4 text-sm text-green-600">{successMessage}</p>}
+
+                        <button type="submit" disabled={loading} className="mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">
+                            {loading ? "Creating Account..." : "Create Account"}
                         </button>
 
                         <div className="mt-4 flex justify-center gap-1 text-stone-500">
