@@ -28,6 +28,7 @@ export default function MapPage() {
     const [googleName, setGoogleName] = useState("");
     const [googleAddress, setGoogleAddress] = useState("");
     const [showGoogleSave, setShowGoogleSave] = useState(false);
+    const [userLocation, setUserLocation] = useState(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -50,6 +51,26 @@ export default function MapPage() {
                 });
 
                 mapInstanceRef.current = map;
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lng = position.coords.longitude;
+
+                            const coords = { lat, lng };
+                            setUserLocation(coords);
+
+                            if (mapInstanceRef.current) {
+                                mapInstanceRef.current.setCenter(coords);
+                                mapInstanceRef.current.setZoom(13);
+                            }
+                        },
+                        (error) => {
+                            console.error("Geolocation error:", error);
+                        }
+                    );
+                }
 
                 setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
 
@@ -122,6 +143,12 @@ export default function MapPage() {
                     input: debouncedSearchValue,
                     includedPrimaryTypes: ["restaurant"],
                     sessionToken: token,
+                    locationBias: userLocation
+                        ? {
+                            center: userLocation,
+                            radius: 5000,
+                        }
+                        : undefined,
                 };
 
                 const response =
