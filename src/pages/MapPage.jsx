@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import { fetchRestaurants, createManualRestaurant, saveGoogleRestaurantIfNotExists } from "../services/restaurant";
 import useDebouncedValue from "../hooks/useDebouncedValue";
+import SaveRestaurantModal from "../components/map/SaveRestaurantModal";
 
 export default function MapPage() {
     const mapRef = useRef(null);
@@ -72,7 +73,9 @@ export default function MapPage() {
                     );
                 }
 
-                setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+                setSessionToken(
+                    new window.google.maps.places.AutocompleteSessionToken()
+                );
 
                 map.addListener("click", (event) => {
                     if (!event.latLng) return;
@@ -90,6 +93,7 @@ export default function MapPage() {
                     setShowGoogleSave(false);
                     setSelectedGooglePlace(null);
                     setSuggestions([]);
+                    setShouldFetchSuggestions(false);
                 });
 
                 const restaurantRows = await fetchRestaurants();
@@ -128,7 +132,11 @@ export default function MapPage() {
                     return;
                 }
 
-                if (!window.google || !window.google.maps || !window.google.maps.places) {
+                if (
+                    !window.google ||
+                    !window.google.maps ||
+                    !window.google.maps.places
+                ) {
                     return;
                 }
 
@@ -170,7 +178,7 @@ export default function MapPage() {
         }
 
         fetchAutocompleteSuggestions();
-    }, [debouncedSearchValue, sessionToken, shouldFetchSuggestions]);
+    }, [debouncedSearchValue, sessionToken, shouldFetchSuggestions, userLocation]);
 
     function renderSavedMarkers(restaurantRows, map) {
         savedMarkersRef.current.forEach((marker) => marker.setMap(null));
@@ -343,18 +351,23 @@ export default function MapPage() {
     }
 
     return (
-        <div className="px-4 py-6 lg:px-6">
-            <div className="mb-4">
-                <h1 className="text-2xl font-semibold text-stone-800">Map</h1>
-                <p className="text-sm text-stone-500">
-                    Search for a restaurant or click anywhere on the map to add one manually.
-                </p>
+        <div className="relative h-screen w-full overflow-hidden">
+            {(loading || errorMessage) && (
+                <div className="absolute top-4 left-6 z-30">
+                    {loading && (
+                        <p className="rounded-md bg-white/90 px-3 py-2 text-sm text-stone-600 shadow">
+                            Loading map...
+                        </p>
+                    )}
+                    {errorMessage && (
+                        <p className="mt-2 rounded-md bg-white/90 px-3 py-2 text-sm text-red-600 shadow">
+                            {errorMessage}
+                        </p>
+                    )}
+                </div>
+            )}
 
-                {loading && <p className="mt-2 text-sm text-stone-500">Loading map...</p>}
-                {errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
-            </div>
-
-            <div className="relative mb-4 max-w-xl">
+            <div className="absolute top-6 left-6 z-20 w-[420px]">
                 <input
                     type="text"
                     value={searchValue}
@@ -362,12 +375,12 @@ export default function MapPage() {
                         setSearchValue(e.target.value);
                         setShouldFetchSuggestions(true);
                     }}
-                    placeholder="Search for a restaurant"
-                    className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-stone-500"
+                    placeholder="Search restaurants or places..."
+                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 shadow-lg outline-none focus:border-stone-500"
                 />
 
                 {suggestions.length > 0 && (
-                    <div className="absolute z-20 mt-2 w-full rounded-xl border border-stone-300 bg-white shadow-lg">
+                    <div className="mt-2 overflow-hidden rounded-xl border border-stone-300 bg-white shadow-xl">
                         {suggestions.map((suggestion, index) => (
                             <button
                                 key={`${suggestion.placeId}-${index}`}
@@ -381,107 +394,30 @@ export default function MapPage() {
                 )}
             </div>
 
-            <div
-                ref={mapRef}
-                className="h-[500px] w-full rounded-xl border border-stone-300"
-            />
+            <div ref={mapRef} className="h-full w-full" />
 
             {showGoogleSave && (
-                <div className="mt-4 max-w-md rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold text-stone-800">
-                        Save Restaurant
-                    </h2>
-
-                    <div className="mb-3">
-                        <label className="mb-1 block text-sm text-stone-600">
-                            Restaurant Name
-                        </label>
-                        <input
-                            type="text"
-                            value={googleName}
-                            onChange={(e) => setGoogleName(e.target.value)}
-                            className="w-full rounded-lg border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
-                        />
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="mb-1 block text-sm text-stone-600">
-                            Address
-                        </label>
-                        <input
-                            type="text"
-                            value={googleAddress}
-                            onChange={(e) => setGoogleAddress(e.target.value)}
-                            className="w-full rounded-lg border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
-                        />
-                    </div>
-
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleSaveGoogleRestaurant}
-                            className="rounded-lg bg-stone-800 px-4 py-2 text-sm text-white hover:bg-stone-700"
-                        >
-                            Confirm Save
-                        </button>
-
-                        <button
-                            onClick={handleCancelGoogleSave}
-                            className="rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
+                <SaveRestaurantModal
+                    title="Save Restaurant"
+                    name={googleName}
+                    address={googleAddress}
+                    setName={setGoogleName}
+                    setAddress={setGoogleAddress}
+                    onConfirm={handleSaveGoogleRestaurant}
+                    onCancel={handleCancelGoogleSave}
+                />
             )}
 
             {showManualSave && (
-                <div className="mt-4 max-w-md rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold text-stone-800">
-                        Save Manual Restaurant
-                    </h2>
-
-                    <div className="mb-3">
-                        <label className="mb-1 block text-sm text-stone-600">
-                            Restaurant Name
-                        </label>
-                        <input
-                            type="text"
-                            value={manualName}
-                            onChange={(e) => setManualName(e.target.value)}
-                            className="w-full rounded-lg border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
-                            placeholder="Enter restaurant name"
-                        />
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="mb-1 block text-sm text-stone-600">
-                            Address (optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={manualAddress}
-                            onChange={(e) => setManualAddress(e.target.value)}
-                            className="w-full rounded-lg border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
-                            placeholder="Enter address"
-                        />
-                    </div>
-
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleSaveManualRestaurant}
-                            className="rounded-lg bg-stone-800 px-4 py-2 text-sm text-white hover:bg-stone-700"
-                        >
-                            Confirm Save
-                        </button>
-
-                        <button
-                            onClick={handleCancelManualSave}
-                            className="rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
+                <SaveRestaurantModal
+                    title="Save Manual Restaurant"
+                    name={manualName}
+                    address={manualAddress}
+                    setName={setManualName}
+                    setAddress={setManualAddress}
+                    onConfirm={handleSaveManualRestaurant}
+                    onCancel={handleCancelManualSave}
+                />
             )}
         </div>
     );
