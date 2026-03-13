@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
-import { fetchRestaurants, createManualRestaurant, saveGoogleRestaurantIfNotExists } from "../services/restaurant";
+import {
+    fetchRestaurants,
+    createManualRestaurant,
+    saveGoogleRestaurantIfNotExists,
+} from "../services/restaurant";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import SaveRestaurantModal from "../components/map/SaveRestaurantModal";
 
@@ -9,6 +13,8 @@ export default function MapPage() {
     const mapInstanceRef = useRef(null);
     const savedMarkersRef = useRef([]);
     const tempMarkerRef = useRef(null);
+    const infoWindowRef = useRef(null);
+    const isDropPinModeRef = useRef(false);
 
     const [restaurants, setRestaurants] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,6 +37,12 @@ export default function MapPage() {
     const [showGoogleSave, setShowGoogleSave] = useState(false);
     const [userLocation, setUserLocation] = useState(null);
 
+    const [isDropPinMode, setIsDropPinMode] = useState(false);
+
+    useEffect(() => {
+        isDropPinModeRef.current = isDropPinMode;
+    }, [isDropPinMode]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -49,17 +61,21 @@ export default function MapPage() {
                     mapTypeControl: false,
                     streetViewControl: false,
                     fullscreenControl: false,
+                    clickableIcons: true,
                 });
 
                 mapInstanceRef.current = map;
+                infoWindowRef.current = new window.google.maps.InfoWindow();
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             const lat = position.coords.latitude;
                             const lng = position.coords.longitude;
-
                             const coords = { lat, lng };
+
+                            if (!isMounted) return;
+
                             setUserLocation(coords);
 
                             if (mapInstanceRef.current) {
@@ -77,23 +93,74 @@ export default function MapPage() {
                     new window.google.maps.places.AutocompleteSessionToken()
                 );
 
+                // Manual drop pin click
                 map.addListener("click", (event) => {
+                    if (!isDropPinModeRef.current) return;
                     if (!event.latLng) return;
 
                     const lat = event.latLng.lat();
                     const lng = event.latLng.lng();
 
-                    placeTemporaryMarker({ lat, lng });
+                    openManualPinFlow(lat, lng);
+                });
 
-                    setManualPin({ lat, lng });
-                    setManualName("");
-                    setManualAddress("");
-                    setShowManualSave(true);
+                // Click Google POIs directly on map for quick add
+                map.addListener("click", (event) => {
+                    if (isDropPinModeRef.current) return;
+                    if (!event.placeId) return;
 
-                    setShowGoogleSave(false);
-                    setSelectedGooglePlace(null);
-                    setSuggestions([]);
-                    setShouldFetchSuggestions(false);
+                    event.stop();
+
+                    const service = new window.google.maps.places.PlacesService(map);
+
+                    service.getDetails(
+                        {
+                            placeId: event.placeId,
+                            fields: ["place_id", "name", "formatted_address", "geometry"],
+                        },
+                        (place, status) => {
+                            if (
+                                status !== window.google.maps.places.PlacesServiceStatus.OK ||
+                                !place ||
+                                !place.geometry ||
+                                !place.geometry.location
+                            ) {
+                                return;
+                            }
+
+                            const lat = place.geometry.location.lat();
+                            const lng = place.geometry.location.lng();
+
+                            const normalizedPlace = {
+                                id: place.place_id,
+                                displayName: place.name || "",
+                                formattedAddress: place.formatted_address || "",
+                                location: {
+                                    lat: () => lat,
+                                    lng: () => lng,
+                                },
+                            };
+
+                            closeInfoWindow();
+                            placeTemporaryMarker({ lat, lng });
+
+                            setSelectedGooglePlace(normalizedPlace);
+                            setGoogleName(normalizedPlace.displayName || "");
+                            setGoogleAddress(normalizedPlace.formattedAddress || "");
+                            setShowManualSave(false);
+                            setShowGoogleSave(false);
+                            setSuggestions([]);
+                            setShouldFetchSuggestions(false);
+                            setSearchValue(normalizedPlace.displayName || "");
+
+                            if (mapInstanceRef.current) {
+                                mapInstanceRef.current.setCenter({ lat, lng });
+                                mapInstanceRef.current.setZoom(15);
+                            }
+
+                            openSelectedPlaceInfoWindow(normalizedPlace);
+                        }
+                    );
                 });
 
                 const restaurantRows = await fetchRestaurants();
@@ -116,6 +183,13 @@ export default function MapPage() {
 
         return () => {
             isMounted = false;
+            savedMarkersRef.current.forEach((marker) => marker.setMap(null));
+            if (tempMarkerRef.current) {
+                tempMarkerRef.current.setMap(null);
+            }
+            if (infoWindowRef.current) {
+                infoWindowRef.current.close();
+            }
         };
     }, []);
 
@@ -180,11 +254,39 @@ export default function MapPage() {
         fetchAutocompleteSuggestions();
     }, [debouncedSearchValue, sessionToken, shouldFetchSuggestions, userLocation]);
 
+    useEffect(() => {
+        function handleQuickAddClick(event) {
+            const quickAddButton = event.target.closest(
+                "[data-quick-add-google-place]"
+            );
+
+            if (!quickAddButton) return;
+            if (!selectedGooglePlace) return;
+
+            setGoogleName(selectedGooglePlace.displayName || "");
+            setGoogleAddress(selectedGooglePlace.formattedAddress || "");
+            setShowGoogleSave(true);
+            closeInfoWindow();
+        }
+
+        document.addEventListener("click", handleQuickAddClick);
+
+        return () => {
+            document.removeEventListener("click", handleQuickAddClick);
+        };
+    }, [selectedGooglePlace]);
+
+    function closeInfoWindow() {
+        if (infoWindowRef.current) {
+            infoWindowRef.current.close();
+        }
+    }
+
     function renderSavedMarkers(restaurantRows, map) {
         savedMarkersRef.current.forEach((marker) => marker.setMap(null));
 
         savedMarkersRef.current = restaurantRows.map((restaurant) => {
-            return new window.google.maps.Marker({
+            const marker = new window.google.maps.Marker({
                 map,
                 position: {
                     lat: restaurant.lat,
@@ -192,6 +294,34 @@ export default function MapPage() {
                 },
                 title: restaurant.name,
             });
+
+            marker.addListener("click", () => {
+                closeInfoWindow();
+
+                const content = `
+          <div style="min-width: 220px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
+            <div style="padding: 0; margin: 0;">
+              <div style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.25;">
+                ${escapeHtml(restaurant.name)}
+              </div>
+              <p style="margin: 0 0 6px 0; font-size: 14px; color: #444; line-height: 1.4;">
+                ${escapeHtml(restaurant.address || "No address provided")}
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #777; text-transform: capitalize;">
+                Source: ${escapeHtml(restaurant.source)}
+              </p>
+            </div>
+          </div>
+        `;
+
+                infoWindowRef.current.setContent(content);
+                infoWindowRef.current.open({
+                    anchor: marker,
+                    map,
+                });
+            });
+
+            return marker;
         });
     }
 
@@ -217,6 +347,62 @@ export default function MapPage() {
         }
     }
 
+    function openManualPinFlow(lat, lng) {
+        closeInfoWindow();
+        placeTemporaryMarker({ lat, lng });
+
+        setManualPin({ lat, lng });
+        setManualName("");
+        setManualAddress("");
+        setShowManualSave(true);
+
+        setShowGoogleSave(false);
+        setSelectedGooglePlace(null);
+        setSuggestions([]);
+        setShouldFetchSuggestions(false);
+    }
+
+    function openSelectedPlaceInfoWindow(place) {
+        if (!mapInstanceRef.current || !tempMarkerRef.current || !infoWindowRef.current) {
+            return;
+        }
+
+        const content = `
+      <div style="min-width: 240px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
+        <div style="padding: 0; margin: 0;">
+          <div style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.25;">
+            ${escapeHtml(place.displayName || "Selected restaurant")}
+          </div>
+          <p style="margin: 0 0 12px 0; font-size: 14px; color: #444; line-height: 1.4;">
+            ${escapeHtml(place.formattedAddress || "No address available")}
+          </p>
+          <button
+            data-quick-add-google-place="true"
+            style="
+              display: inline-block;
+              background: #292524;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              padding: 10px 14px;
+              font-size: 13px;
+              font-weight: 600;
+              cursor: pointer;
+            "
+          >
+            Quick Add
+          </button>
+        </div>
+      </div>
+    `;
+
+        infoWindowRef.current.setContent(content);
+        infoWindowRef.current.open({
+            anchor: tempMarkerRef.current,
+            map: mapInstanceRef.current,
+        });
+    }
+
     async function handleSuggestionClick(suggestion) {
         try {
             setSuggestions([]);
@@ -236,6 +422,7 @@ export default function MapPage() {
                 return;
             }
 
+            closeInfoWindow();
             placeTemporaryMarker({ lat, lng });
 
             if (mapInstanceRef.current) {
@@ -246,11 +433,12 @@ export default function MapPage() {
             setSelectedGooglePlace(place);
             setGoogleName(place.displayName || "");
             setGoogleAddress(place.formattedAddress || "");
-            setShowGoogleSave(true);
-
             setShowManualSave(false);
+            setShowGoogleSave(false);
             setSearchValue(place.displayName || "");
             setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+
+            openSelectedPlaceInfoWindow(place);
         } catch (error) {
             console.error(error);
             alert("Failed to load place details.");
@@ -328,10 +516,26 @@ export default function MapPage() {
             }
 
             handleCancelManualSave();
+
+            // Only turn off drop pin mode after successful save
+            setIsDropPinMode(false);
         } catch (error) {
             console.error(error);
             alert(error.message || "Failed to save restaurant.");
         }
+    }
+
+    function handleToggleDropPinMode() {
+        closeInfoWindow();
+        setSuggestions([]);
+        setShouldFetchSuggestions(false);
+        setShowGoogleSave(false);
+        setShowManualSave(false);
+        clearTemporaryMarker();
+        setManualPin(null);
+        setManualName("");
+        setManualAddress("");
+        setIsDropPinMode((prev) => !prev);
     }
 
     function handleCancelManualSave() {
@@ -348,10 +552,20 @@ export default function MapPage() {
         setGoogleName("");
         setGoogleAddress("");
         clearTemporaryMarker();
+        closeInfoWindow();
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
     }
 
     return (
-        <div className="relative h-screen w-full overflow-hidden">
+        <div className="relative h-full w-full overflow-hidden">
             {(loading || errorMessage) && (
                 <div className="absolute top-4 left-6 z-30">
                     {loading && (
@@ -367,7 +581,7 @@ export default function MapPage() {
                 </div>
             )}
 
-            <div className="absolute top-6 left-6 z-20 w-[420px]">
+            <div className="absolute top-4 left-4 right-4 z-20 lg:top-6 lg:left-6 lg:right-auto lg:w-[420px]">
                 <input
                     type="text"
                     value={searchValue}
@@ -392,6 +606,18 @@ export default function MapPage() {
                         ))}
                     </div>
                 )}
+            </div>
+
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 lg:top-6 lg:right-6 lg:left-auto lg:bottom-auto lg:translate-x-0">
+                <button
+                    onClick={handleToggleDropPinMode}
+                    className={`rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${isDropPinMode
+                        ? "bg-white text-stone-700"
+                        : "bg-[rgb(203,84,51)] text-white"
+                        }`}
+                >
+                    {isDropPinMode ? "Cancel Drop Pin" : "Enable Drop Pin"}
+                </button>
             </div>
 
             <div ref={mapRef} className="h-full w-full" />

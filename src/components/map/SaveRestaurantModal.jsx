@@ -3,7 +3,7 @@ export default function SaveRestaurantModal({
 }) {
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
-            <div className="relative z-[10000] w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="relative z-[10000] w-3/4 max-w-md rounded-2xl bg-white p-6 shadow-2xl">
                 <h2 className="mb-4 text-lg font-semibold text-stone-800">{title}</h2>
 
                 <div className="mb-3">
@@ -31,9 +31,9 @@ export default function SaveRestaurantModal({
                 <div className="flex gap-2">
                     <button
                         onClick={onConfirm}
-                        className="rounded-lg bg-stone-800 px-4 py-2 text-sm text-white hover:bg-stone-700"
+                        className="rounded-lg bg-[rgb(203,84,51)] px-8 py-2 text-sm text-white hover:bg-stone-700"
                     >
-                        Confirm Save
+                        Save
                     </button>
 
                     <button
