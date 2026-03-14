@@ -3,11 +3,13 @@ import TopNavigation from "../components/layout/TopNavigation";
 
 export default function AppLayout() {
     const location = useLocation();
-
     const isMapPage = location.pathname === "/map";
 
     return (
-        <div className="flex h-dvh flex-col overflow-hidden">
+        <div
+            className={`flex flex-col ${isMapPage ? "h-dvh overflow-hidden" : "min-h-dvh"
+                }`}
+        >
             <TopNavigation />
 
             <main

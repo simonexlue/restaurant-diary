@@ -104,3 +104,23 @@ export async function saveGoogleRestaurantIfNotExists({
     alreadyExists: false,
   };
 }
+
+export async function getOrCreateRestaurantFromGooglePlace(place) {
+  const google_place_id = place.id;
+  const lat = place.location?.lat();
+  const lng = place.location?.lng();
+
+  if (!google_place_id || lat == null || lng == null) {
+    throw new Error("Missing Google place details.");
+  }
+
+  const result = await saveGoogleRestaurantIfNotExists({
+    google_place_id,
+    name: place.displayName || "Unnamed restaurant",
+    address: place.formattedAddress || null,
+    lat,
+    lng,
+  });
+
+  return result.restaurant;
+}
