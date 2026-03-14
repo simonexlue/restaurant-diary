@@ -6,6 +6,7 @@ import AppLayout from "./layouts/AppLayout";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import MapPage from "./pages/MapPage";
 import MyDiary from "./pages/MyDiary";
+import CreateDishEntry from "./pages/CreateDishEntry";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/diary" element={<MyDiary />} />
+        <Route path="/diary/new" element={<CreateDishEntry />} />
       </Route>
 
     </Routes>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 import DiaryCard from "../components/diary/DiaryCard"
+import { getUserDiaryRestaurants } from "../services/diary"
+import { Link } from "react-router-dom"
 
 const dummyRestaurants = [
     {
@@ -31,10 +33,34 @@ const dummyRestaurants = [
 export default function MyDiary() {
     const [searchRestaurant, setSearchRestaurant] = useState("")
     const [filteredRestaurants, setFilteredRestaurants] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [errorMessage, setErrorMessage] = useState("")
+    const [data, setData] = useState(null)
 
     useEffect(() => {
-        filterRestaurants()
+        fetchDiaryData()
+    }, [])
+
+    useEffect(() => {
+        filterRestaurants();
     }, [searchRestaurant])
+
+    async function fetchDiaryData() {
+        setLoading(true)
+        setErrorMessage("")
+
+        try {
+            const data = await getUserDiaryRestaurants()
+
+            setData(data);
+            console.log(data)
+
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to load restaurants")
+        } finally {
+            setLoading(false)
+        }
+    }
 
     function filterRestaurants() {
         const filteredList = dummyRestaurants
@@ -58,7 +84,7 @@ export default function MyDiary() {
                     <h1 className="text-3xl text-stone-700">My Diary</h1>
                     <p className="text-[rgb(137,122,114)] text-sm">{dummyRestaurants.length} restaurants | {totalEntries} entries</p>
                 </div>
-                <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+ New Entry</button>
+                <Link to="/diary/new" className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+ New Entry</Link>
             </div>
 
             {/* Search, Filters, and Tags */}
@@ -71,8 +97,6 @@ export default function MyDiary() {
             </div>
 
             {/* Grid */}
-            {/* No restaurants added yet */}
-
             {filteredRestaurants && (
                 <div className="mt-6">
                     <p className="text-[rgb(137,122,114)] text-sm">Showing {filteredRestaurants.length} of {dummyRestaurants.length} restaurants</p>
