@@ -3,17 +3,12 @@ import { useState, useEffect, useRef } from "react";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import { getOrCreateRestaurantFromGooglePlace } from "../services/restaurant";
 import { DayPicker } from "react-day-picker";
-import { IoGlobeOutline } from "react-icons/io5";
-import { MdPeopleOutline } from "react-icons/md";
-import { IoLockClosedOutline } from "react-icons/io5";
-import { IoLocationOutline } from "react-icons/io5";
-import { MdOutlineCalendarToday } from "react-icons/md";
+import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline, IoGlobeOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
-import { FaRegStar } from "react-icons/fa";
-import { MdAttachMoney } from "react-icons/md";
-import { MdOutlineAddPhotoAlternate } from "react-icons/md";
+import { MdPeopleOutline, MdAttachMoney, MdOutlineAddPhotoAlternate, MdOutlineCalendarToday } from "react-icons/md";
 import { RiBookOpenLine } from "react-icons/ri";
-import { IoPricetagsOutline } from "react-icons/io5";
+import { FaStar, FaStarHalf, FaRegStar } from "react-icons/fa";
+import TagPill from "../components/ui/TagPill";
 
 
 export default function CreateDishEntry() {
@@ -40,6 +35,26 @@ export default function CreateDishEntry() {
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
     const [isDragActive, setIsDragActive] = useState(false);
     const fileInputRef = useRef(null);
+
+    const [dishName, setDishName] = useState("")
+    const [dishPrice, setDishPrice] = useState("")
+    const [dishPrivacy, setDishPrivacy] = useState(null)
+
+    const [rating, setRating] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
+
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [customTagInput, setCustomTagInput] = useState("");
+
+    const SUGGESTED_TAGS = [
+        "Must Order",
+        "Skip",
+        "Spicy",
+        "Italian",
+        "Drink",
+        "Appetizer",
+        "Main",
+    ];
 
     useEffect(() => {
         async function initializeGoogle() {
@@ -263,6 +278,100 @@ export default function CreateDishEntry() {
         }
     }
 
+    function getPrivacyOptionClasses(option) {
+        const isSelected = dishPrivacy === option;
+
+        return `flex flex-col gap-2 items-center py-5 border w-1/3 rounded-lg transition-colors cursor-pointer ${isSelected
+            ? "border-[rgb(203,84,51)] bg-[rgb(253,246,244)]"
+            : "border-stone-300 hover:border-[rgb(203,84,51)] hover:bg-[rgb(253,246,244)]"
+            }`;
+    }
+
+    function getPrivacyTextClasses(option) {
+        const isSelected = dishPrivacy === option;
+
+        return isSelected
+            ? "text-[rgb(203,84,51)]"
+            : "text-[rgb(137,122,114)] group-hover:text-[rgb(203,84,51)]";
+    }
+
+    function getDisplayRating() {
+        return hoverRating || rating;
+    }
+
+    function renderStar(starNumber) {
+        const currentValue = getDisplayRating();
+
+        if (currentValue >= starNumber) {
+            return <FaStar size={32} className="text-[rgb(203,84,51)]" />;
+        }
+
+        if (currentValue >= starNumber - 0.5) {
+            return <FaStarHalf size={32} className="text-[rgb(203,84,51)]" />;
+        }
+
+        return <FaRegStar size={32} className="text-stone-300" />;
+    }
+
+    function handleStarMouseMove(event, starNumber) {
+        const { left, width } = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - left;
+        const isLeftHalf = x < width / 2;
+
+        setHoverRating(isLeftHalf ? starNumber - 0.5 : starNumber);
+    }
+
+    function normalizeTag(tag) {
+        return tag.trim().toLowerCase();
+    }
+
+    function toggleTag(tagLabel) {
+        const normalized = normalizeTag(tagLabel);
+
+        setSelectedTags((prev) => {
+            const alreadySelected = prev.some(
+                (tag) => normalizeTag(tag) === normalized
+            );
+
+            if (alreadySelected) {
+                return prev.filter((tag) => normalizeTag(tag) !== normalized);
+            }
+
+            return [...prev, tagLabel.trim()];
+        });
+    }
+
+    function removeTag(tagLabel) {
+        const normalized = normalizeTag(tagLabel);
+
+        setSelectedTags((prev) =>
+            prev.filter((tag) => normalizeTag(tag) !== normalized)
+        );
+    }
+
+    function handleAddCustomTag() {
+        const trimmed = customTagInput.trim();
+        if (!trimmed) return;
+
+        const normalized = normalizeTag(trimmed);
+        const alreadySelected = selectedTags.some(
+            (tag) => normalizeTag(tag) === normalized
+        );
+
+        if (!alreadySelected) {
+            setSelectedTags((prev) => [...prev, trimmed]);
+        }
+
+        setCustomTagInput("");
+    }
+
+    function handleCustomTagKeyDown(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            handleAddCustomTag();
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-1">
@@ -370,7 +479,7 @@ export default function CreateDishEntry() {
                                     animate
                                     mode="single"
                                     selected={dateSelected}
-                                    onSelect={setDateSelected}
+                                    onSelect={handleDateSelect}
                                     className="w-90 bg-white shadow-lg rounded-lg p-5 border border-gray-200"
                                 />
                             </div>
@@ -386,6 +495,8 @@ export default function CreateDishEntry() {
                             <label className="text-stone-800">Dish Name</label>
                         </div>
                         <input
+                            value={dishName}
+                            onChange={(e) => setDishName(e.target.value)}
                             type="text"
                             placeholder="e.g., Spicy Tuna Roll"
                             className="h-10 w-full rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)] "
@@ -397,6 +508,23 @@ export default function CreateDishEntry() {
                             <FaRegStar size={18} className="relative text-[rgb(203,84,51)]" />
                             <label className="text-stone-800">Rating</label>
                         </div>
+
+                        <div
+                            className="flex items-center gap-1"
+                            onMouseLeave={() => setHoverRating(0)}
+                        >
+                            {[1, 2, 3, 4, 5].map((starNumber) => (
+                                <button
+                                    key={starNumber}
+                                    type="button"
+                                    onMouseMove={(event) => handleStarMouseMove(event, starNumber)}
+                                    onClick={() => setRating(hoverRating || starNumber)}
+                                    className="cursor-pointer"
+                                >
+                                    {renderStar(starNumber)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -405,6 +533,8 @@ export default function CreateDishEntry() {
                             <label className="text-stone-800">Price</label>
                         </div>
                         <input
+                            value={dishPrice}
+                            onChange={(e) => setDishPrice(e.target.value)}
                             type="number"
                             placeholder="0.00"
                             className="h-10 w-full rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)] "
@@ -510,12 +640,73 @@ export default function CreateDishEntry() {
                         className="rounded-lg border border-gray-300 px-3 py-2 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)]" />
                 </div>
 
-                {/* Tags  */}
-                <div className="bg-white py-6 px-6 rounded-lg border border-stone-200 flex flex-col gap-2">
+                {/* Tags */}
+                <div className="bg-white py-6 px-6 rounded-lg border border-stone-200 flex flex-col gap-4">
                     <div className="flex flex-row items-center gap-1.5">
                         <IoPricetagsOutline size={18} className="relative text-[rgb(203,84,51)]" />
                         <label className="text-stone-800">Tags</label>
                     </div>
+
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm text-[rgb(137,122,114)]">Suggested tags</p>
+                        <div className="flex flex-wrap gap-2">
+                            {SUGGESTED_TAGS.map((tag) => {
+                                const isSelected = selectedTags.some(
+                                    (selectedTag) => normalizeTag(selectedTag) === normalizeTag(tag)
+                                );
+
+                                return (
+                                    <TagPill
+                                        key={tag}
+                                        label={tag}
+                                        selected={isSelected}
+                                        onClick={() => toggleTag(tag)}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm text-[rgb(137,122,114)]">Add custom tag</p>
+
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={customTagInput}
+                                onChange={(e) => setCustomTagInput(e.target.value)}
+                                onKeyDown={handleCustomTagKeyDown}
+                                placeholder="e.g. Good for sharing"
+                                className="h-10 w-full rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)]"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={handleAddCustomTag}
+                                className="rounded-lg border border-stone-300 bg-white px-4 text-sm text-stone-700 hover:cursor-pointer"
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+
+                    {selectedTags.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-sm text-[rgb(137,122,114)]">Selected tags</p>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedTags.map((tag) => (
+                                    <TagPill
+                                        key={tag}
+                                        label={tag}
+                                        selected
+                                        removable
+                                        onClick={() => toggleTag(tag)}
+                                        onRemove={() => removeTag(tag)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Privacy  */}
@@ -524,23 +715,63 @@ export default function CreateDishEntry() {
                         <IoLockClosedOutline size={16} className="relative text-[rgb(203,84,51)] top-[-1px]" />
                         <label className="text-stone-800">Privacy</label>
                     </div>
+
                     <div className="flex flex-row justify-between gap-3">
-                        <div className="flex flex-col gap-2 items-center py-5 border border-stone-300 w-1/3 rounded-lg hover:border-[rgb(203,84,51)] hover:bg-[rgb(253,246,244)] hover:cursor-pointer">
-                            <IoGlobeOutline size={24} color="rgb(137,122,114)" />
-                            <p className="text-sm text-[rgb(137,122,114)]">Public</p>
-                            <p className="text-xs text-[rgb(137,122,114)]">Everyone</p>
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setDishPrivacy("public")}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    setDishPrivacy("public");
+                                }
+                            }}
+                            className={`${getPrivacyOptionClasses("public")} group`}
+                        >
+                            <IoGlobeOutline
+                                size={24}
+                                className={dishPrivacy === "public" ? "text-[rgb(203,84,51)]" : "text-[rgb(137,122,114)] group-hover:text-[rgb(203,84,51)]"}
+                            />
+                            <p className={`text-sm ${getPrivacyTextClasses("public")}`}>Public</p>
+                            <p className={`text-xs ${getPrivacyTextClasses("public")}`}>Everyone</p>
                         </div>
 
-                        <div className="flex flex-col gap-2 items-center py-5 border border-stone-300 w-1/3 rounded-lg hover:border-[rgb(203,84,51)] hover:bg-[rgb(253,246,244)] hover:cursor-pointer">
-                            <MdPeopleOutline size={24} color="rgb(137,122,114)" />
-                            <p className="text-sm text-[rgb(137,122,114)]">Friends</p>
-                            <p className="text-xs text-[rgb(137,122,114)]">Friends only</p>
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setDishPrivacy("friends")}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    setDishPrivacy("friends");
+                                }
+                            }}
+                            className={`${getPrivacyOptionClasses("friends")} group`}
+                        >
+                            <MdPeopleOutline
+                                size={24}
+                                className={dishPrivacy === "friends" ? "text-[rgb(203,84,51)]" : "text-[rgb(137,122,114)] group-hover:text-[rgb(203,84,51)]"}
+                            />
+                            <p className={`text-sm ${getPrivacyTextClasses("friends")}`}>Friends</p>
+                            <p className={`text-xs ${getPrivacyTextClasses("friends")}`}>Friends only</p>
                         </div>
 
-                        <div className="flex flex-col gap-2 items-center py-5 border border-stone-300 w-1/3 rounded-lg hover:border-[rgb(203,84,51)] hover:bg-[rgb(253,246,244)] hover:cursor-pointer">
-                            <IoLockClosedOutline size={24} color="rgb(137,122,114)" />
-                            <p className="text-sm text-[rgb(137,122,114)]">Private</p>
-                            <p className="text-xs text-[rgb(137,122,114)]">Only you</p>
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setDishPrivacy("private")}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    setDishPrivacy("private");
+                                }
+                            }}
+                            className={`${getPrivacyOptionClasses("private")} group`}
+                        >
+                            <IoLockClosedOutline
+                                size={24}
+                                className={dishPrivacy === "private" ? "text-[rgb(203,84,51)]" : "text-[rgb(137,122,114)] group-hover:text-[rgb(203,84,51)]"}
+                            />
+                            <p className={`text-sm ${getPrivacyTextClasses("private")}`}>Private</p>
+                            <p className={`text-xs ${getPrivacyTextClasses("private")}`}>Only you</p>
                         </div>
                     </div>
                 </div>
