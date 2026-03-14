@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import AppLayout from "./layouts/AppLayout";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import MapPage from "./pages/MapPage";
+import MyDiary from "./pages/MyDiary";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         {/* Pages go here */}
         <Route index element={<Home />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/diary" element={<MyDiary />} />
       </Route>
 
     </Routes>
