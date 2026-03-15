@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import { getOrCreateRestaurantFromGooglePlace } from "../services/restaurant";
+import { createDishEntryWithOptionalPhoto } from "../services/diary";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
@@ -17,6 +20,7 @@ import TagsSelector from "../components/diary/TagsSelector";
 import SelectedRestaurantCard from "../components/diary/SelectedRestaurantCard";
 
 export default function CreateDishEntry() {
+    const navigate = useNavigate();
     const [searchValue, setSearchValue] = useState("");
     const debouncedSearchValue = useDebouncedValue(searchValue, 350);
 
@@ -49,6 +53,8 @@ export default function CreateDishEntry() {
 
     const [selectedTags, setSelectedTags] = useState([]);
     const [customTagInput, setCustomTagInput] = useState("");
+
+    const [savingEntry, setSavingEntry] = useState(false);
 
     useEffect(() => {
         async function initializeGoogle() {
@@ -329,6 +335,96 @@ export default function CreateDishEntry() {
         }
     }
 
+    function handleCancel() {
+        navigate("/diary")
+    }
+
+    async function handleSaveEntry(e) {
+        e.preventDefault()
+        if (savingEntry) return;
+
+        setErrorMessage("")
+        if (!selectedRestaurant) {
+            setErrorMessage("Please select a restaurant.")
+            return;
+        }
+
+        if (!dateSelected) {
+            setErrorMessage("Please select a date visited.")
+            return;
+        }
+
+        if (!dishName.trim()) {
+            setErrorMessage("Please enter a dish name.");
+            return
+        }
+
+        try {
+            setSavingEntry(true)
+
+            const { data: { user }, error: userError } = await supabase.auth.getUser()
+            if (userError || !user) {
+                throw new Error("You must be logged in to save an entry.");
+            }
+
+            await createDishEntryWithOptionalPhoto({
+                userId: user.id,
+                restaurantId: selectedRestaurant.id,
+                dateTried: dateSelected,
+                dishName,
+                itemRating: rating || null,
+                review: reviewInput,
+                privacy: dishPrivacy || "private",
+                price: dishPrice,
+                tags: selectedTags,
+                photoFile,
+            });
+
+            resetForm();
+            navigate("/diary");
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to save dish entry")
+        } finally {
+            setSavingEntry(false);
+        }
+    }
+
+    function resetForm() {
+        setSearchValue("");
+        setSuggestions([]);
+        setShouldFetchSuggestions(true);
+        setSelectedRestaurant(null);
+
+        setDateSelected(undefined);
+        setIsDatePickerOpen(false);
+
+        setReviewInput("");
+
+        setPhotoFile(null);
+
+        if (photoPreviewUrl) {
+            URL.revokeObjectURL(photoPreviewUrl);
+        }
+
+        setPhotoPreviewUrl("");
+        setIsDragActive(false);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+
+        setDishName("");
+        setDishPrice("");
+        setDishPrivacy(null);
+        setRating(0);
+        setSelectedTags([]);
+        setCustomTagInput("");
+
+        if (window.google?.maps?.places) {
+            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+        }
+    }
+
     return (
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
             <div className="flex flex-col gap-1">
@@ -336,7 +432,7 @@ export default function CreateDishEntry() {
                 <p className="text-[rgb(137,122,114)]">Log a dish you tried at a restaurant</p>
             </div>
 
-            <form className="flex flex-col gap-6">
+            <form onSubmit={handleSaveEntry} className="flex flex-col gap-6">
                 {/* Restaurant */}
                 <div className="bg-white py-6 px-6 rounded-lg border border-stone-200 flex flex-col gap-2">
                     <div className="flex flex-row items-center gap-1.5">
@@ -510,16 +606,19 @@ export default function CreateDishEntry() {
                 {/* Cancel and Save Buttons */}
                 <div className="flex gap-2">
                     <button
+                        onClick={handleCancel}
                         type="button"
+                        disabled={savingEntry}
                         className="w-1/2 mb-4 h-10 rounded-md bg-white py-2 text-sm text-stone-800 hover:cursor-pointer border border-stone-200"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
+                        disabled={savingEntry}
                         className="w-1/2 mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer"
                     >
-                        Save Entry
+                        {savingEntry ? "Saving..." : "Save Entry"}
                     </button>
                 </div>
             </form>
