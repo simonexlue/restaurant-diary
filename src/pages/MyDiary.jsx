@@ -199,13 +199,24 @@ export default function MyDiary() {
             </div>
 
             <div className="border border-gray-200 rounded-lg bg-white py-4 px-4 mt-6">
-                <input
-                    type="text"
-                    className="rounded-lg border border-gray-200 bg-white px-3 focus:outline-[rgb(203,84,51)]"
-                    value={searchRestaurant}
-                    onChange={(e) => setSearchRestaurant(e.target.value)}
-                    placeholder="Search"
-                />
+                <div className="flex flex-row items-center gap-2">
+                    <input
+                        type="text"
+                        className="h-10 w-7/10 rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] text-sm focus:outline-[rgb(203,84,51)]"
+                        value={searchRestaurant}
+                        onChange={(e) => setSearchRestaurant(e.target.value)}
+                        placeholder="Search"
+                    />
+                    <select className="h-10 w-3/10 rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] text-sm text-stone-600 focus:outline-[rgb(203,84,51)] px-2">
+                        <option>Latest First</option>
+                        <option>Highest Rating</option>
+                        <option>A-Z</option>
+                    </select>
+                </div>
+
+                {/* <div>
+                    Tags
+                </div> */}
             </div>
 
             <div className="mt-6">
@@ -214,7 +225,7 @@ export default function MyDiary() {
                 </p>
 
                 {filteredRestaurants.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 lg:grid-cols-3 xl:grid-cols-5">
                         {filteredRestaurants.map((restaurant) => (
                             <DiaryCard
                                 key={restaurant.id}
