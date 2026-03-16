@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 import { saveRestaurantForUser } from "./restaurant";
 
+const DISH_PHOTOS_BUCKET = "dish-photos";
+
 export async function getUserDiaryRestaurants(userId) {
     const { data, error } = await supabase
         .from("saved_restaurants")
@@ -31,7 +33,10 @@ export async function getUserDishEntries(userId) {
             id,
             restaurant_id,
             dish_name,
-            date_tried
+            date_tried,
+            item_rating,
+            tags,
+            photo_path
         `)
         .eq("user_id", userId)
         .order("date_tried", { ascending: false });
@@ -44,7 +49,20 @@ export async function getUserDishEntries(userId) {
     return data;
 }
 
-const DISH_PHOTOS_BUCKET = "dish-photos";
+export async function getDishPhotoUrl(photoPath) {
+    if (!photoPath) return null;
+
+    const { data, error } = await supabase.storage
+        .from(DISH_PHOTOS_BUCKET)
+        .createSignedUrl(photoPath, 60 * 60);
+
+    if (error) {
+        console.error("Failed to create signed URL:", error);
+        return null;
+    }
+
+    return data?.signedUrl || null;
+}
 
 function formatDateForPostgres(date) {
     if (!date) return null;
