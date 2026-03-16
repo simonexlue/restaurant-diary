@@ -5,6 +5,7 @@ import { getOrCreateRestaurantFromGooglePlace } from "../services/restaurant";
 import { createDishEntryWithOptionalPhoto } from "../services/diary";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import useUserProfile from "../hooks/useUserProfile";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
@@ -20,6 +21,7 @@ import TagsSelector from "../components/diary/TagsSelector";
 import SelectedRestaurantCard from "../components/diary/SelectedRestaurantCard";
 
 export default function CreateDishEntry() {
+    const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
     const navigate = useNavigate();
     const [searchValue, setSearchValue] = useState("");
     const debouncedSearchValue = useDebouncedValue(searchValue, 350);
@@ -362,8 +364,7 @@ export default function CreateDishEntry() {
         try {
             setSavingEntry(true)
 
-            const { data: { user }, error: userError } = await supabase.auth.getUser()
-            if (userError || !user) {
+            if (!user) {
                 throw new Error("You must be logged in to save an entry.");
             }
 

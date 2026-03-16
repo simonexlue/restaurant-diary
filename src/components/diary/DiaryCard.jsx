@@ -6,7 +6,7 @@ export default function DiaryCard({ id, name, address, entryCount, lastVisited, 
             <p>{address}</p>
             <p>{entryCount} entries</p>
             <p>Last Visited: {lastVisited}</p>
-            <p>{recentDishes}</p>
+            <p>{recentDishes.join(", ")}</p>
 
         </div>
     )
