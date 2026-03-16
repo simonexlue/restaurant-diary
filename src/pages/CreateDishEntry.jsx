@@ -4,7 +4,6 @@ import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import { getOrCreateRestaurantFromGooglePlace } from "../services/restaurant";
 import { createDishEntryWithOptionalPhoto } from "../services/diary";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
@@ -424,6 +423,14 @@ export default function CreateDishEntry() {
         if (window.google?.maps?.places) {
             setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
         }
+    }
+
+    if (profileLoading) {
+        return <p>Loading...</p>;
+    }
+
+    if (profileErrorMessage) {
+        return <p>{profileErrorMessage}</p>;
     }
 
     return (

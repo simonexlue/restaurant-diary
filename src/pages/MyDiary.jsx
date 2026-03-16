@@ -1,99 +1,84 @@
-import { useEffect, useState, useMemo } from "react"
-import DiaryCard from "../components/diary/DiaryCard"
-import { getUserDiaryRestaurants } from "../services/diary"
-import { Link } from "react-router-dom"
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import DiaryCard from "../components/diary/DiaryCard";
+import { getUserDiaryRestaurants, getUserDishEntries } from "../services/diary";
+import useUserProfile from "../hooks/useUserProfile";
 
-const dummyRestaurants = [
-    {
-        id: "1",
-        name: "Osteria Francescana",
-        address: "ABC",
-        entryCount: 4,
-        lastVisited: "2026-03-01",
-        recentDishes: ["Truffle Pasta", "Tiramisu"]
-    },
-    {
-        id: "2",
-        name: "Sushi By Yuji",
-        address: "ABC",
-        entryCount: 4,
-        lastVisited: "2026-03-01",
-        recentDishes: ["Truffle Pasta", "Tiramisu"]
-    },
-    {
-        id: "3",
-        name: "Sushi Hill",
-        address: "ABC",
-        entryCount: 4,
-        lastVisited: "2026-03-01",
-        recentDishes: ["Truffle Pasta", "Tiramisu"]
-    },
-]
+function buildDiaryCards(savedRestaurants, dishEntries) {
+    const entriesByRestaurantId = new Map();
 
-function groupEntriesByRestaurant(entries) {
-    const groupedMap = new Map();
+    for (const entry of dishEntries) {
+        const existingEntries = entriesByRestaurantId.get(entry.restaurant_id) || [];
+        existingEntries.push(entry);
+        entriesByRestaurantId.set(entry.restaurant_id, existingEntries);
+    }
 
-    for (const entry of entries) {
-        const restaurant = entry.restaurants;
-        if (!restaurant) continue;
+    return savedRestaurants
+        .map((savedRestaurant) => {
+            const restaurant = savedRestaurant.restaurants;
+            if (!restaurant) return null;
 
-        const existingGroup = groupedMap.get(entry.restaurant_id);
+            const entries = entriesByRestaurantId.get(savedRestaurant.restaurant_id) || [];
 
-        if (!existingGroup) {
-            groupedMap.set(entry.restaurant_id, {
+            const sortedEntries = [...entries].sort((a, b) => {
+                if (!a.date_tried) return 1;
+                if (!b.date_tried) return -1;
+                return b.date_tried.localeCompare(a.date_tried);
+            });
+
+            const recentDishes = [];
+
+            for (const entry of sortedEntries) {
+                if (!entry.dish_name) continue;
+
+                const alreadyIncluded = recentDishes.includes(entry.dish_name);
+
+                if (!alreadyIncluded) {
+                    recentDishes.push(entry.dish_name);
+                }
+
+                if (recentDishes.length === 3) break;
+            }
+
+            return {
                 id: restaurant.id,
                 name: restaurant.name,
                 address: restaurant.address || "No address provided",
-                entryCount: 1,
-                lastVisited: entry.date_tried,
-                recentDishes: entry.dish_name ? [entry.dish_name] : [],
-            });
-            continue;
-        }
-        existingGroup.entryCount += 1;
-
-        if (
-            entry.date_tried &&
-            (!existingGroup.lastVisited || entry.date_tried > existingGroup.lastVisited)
-        ) {
-            existingGroup.lastVisited = entry.date_tried;
-        }
-
-        if (entry.dish_name) {
-            const alreadyIncluded = existingGroup.recentDishes.includes(entry.dish_name);
-
-            if (!alreadyIncluded && existingGroup.recentDishes.length < 3) {
-                existingGroup.recentDishes.push(entry.dish_name);
-            }
-        }
-    }
-
-    return Array.from(groupedMap.values()).sort((a, b) => {
-        if (!a.lastVisited) return 1;
-        if (!b.lastVisited) return -1;
-        return b.lastVisited.localeCompare(a.lastVisited);
-    });
+                entryCount: entries.length,
+                lastVisited: sortedEntries[0]?.date_tried || null,
+                recentDishes,
+            };
+        })
+        .filter(Boolean);
 }
 
 export default function MyDiary() {
+    const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
+
     const [searchRestaurant, setSearchRestaurant] = useState("");
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [restaurants, setRestaurants] = useState([]);
 
     useEffect(() => {
+        if (!user) return;
         fetchDiaryData();
-    }, []);
+    }, [user]);
 
     async function fetchDiaryData() {
+        if (!user) return;
+
         setLoading(true);
         setErrorMessage("");
 
         try {
-            const rawEntries = await getUserDiaryRestaurants();
-            const groupedRestaurants = groupEntriesByRestaurant(rawEntries);
+            const [savedRestaurants, dishEntries] = await Promise.all([
+                getUserDiaryRestaurants(user.id),
+                getUserDishEntries(user.id),
+            ]);
 
-            setRestaurants(groupedRestaurants);
+            const diaryCards = buildDiaryCards(savedRestaurants, dishEntries);
+            setRestaurants(diaryCards);
         } catch (error) {
             setErrorMessage(error.message || "Failed to load restaurants");
         } finally {
@@ -116,8 +101,12 @@ export default function MyDiary() {
         0
     );
 
-    if (loading) {
+    if (profileLoading || loading) {
         return <p>Loading...</p>;
+    }
+
+    if (profileErrorMessage) {
+        return <p>{profileErrorMessage}</p>;
     }
 
     if (errorMessage) {
@@ -126,7 +115,6 @@ export default function MyDiary() {
 
     return (
         <div>
-            {/* Header */}
             <div className="flex flex-row justify-between items-start">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl text-stone-700">My Diary</h1>
@@ -142,7 +130,6 @@ export default function MyDiary() {
                 </Link>
             </div>
 
-            {/* Search */}
             <div className="border border-gray-300 rounded-lg bg-white py-4 px-4 mt-6">
                 <input
                     type="text"
@@ -153,7 +140,6 @@ export default function MyDiary() {
                 />
             </div>
 
-            {/* Grid */}
             <div className="mt-6">
                 <p className="text-[rgb(137,122,114)] text-sm">
                     Showing {filteredRestaurants.length} of {restaurants.length} restaurants

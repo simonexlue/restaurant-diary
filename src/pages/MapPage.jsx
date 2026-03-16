@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import {
-    fetchRestaurants,
-    createManualRestaurant,
-    saveGoogleRestaurantIfNotExists,
+    fetchSavedRestaurantsForUser,
+    createManualRestaurantForUser,
+    saveGoogleRestaurantForUser,
 } from "../services/restaurant";
 import useDebouncedValue from "../hooks/useDebouncedValue";
+import useUserProfile from "../hooks/useUserProfile";
 import SaveRestaurantModal from "../components/map/SaveRestaurantModal";
 
 export default function MapPage() {
+    const { user, loading: userLoading, errorMessage: userErrorMessage } = useUserProfile();
+
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const savedMarkersRef = useRef([]);
@@ -44,6 +47,8 @@ export default function MapPage() {
     }, [isDropPinMode]);
 
     useEffect(() => {
+        if (!user) return;
+
         let isMounted = true;
 
         async function initializeMapPage() {
@@ -67,6 +72,12 @@ export default function MapPage() {
                 mapInstanceRef.current = map;
                 infoWindowRef.current = new window.google.maps.InfoWindow();
 
+                setTimeout(() => {
+                    if (mapInstanceRef.current) {
+                        window.google.maps.event.trigger(mapInstanceRef.current, "resize");
+                    }
+                }, 100);
+
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
@@ -79,6 +90,7 @@ export default function MapPage() {
                             setUserLocation(coords);
 
                             if (mapInstanceRef.current) {
+                                window.google.maps.event.trigger(mapInstanceRef.current, "resize");
                                 mapInstanceRef.current.setCenter(coords);
                                 mapInstanceRef.current.setZoom(13);
                             }
@@ -93,7 +105,6 @@ export default function MapPage() {
                     new window.google.maps.places.AutocompleteSessionToken()
                 );
 
-                // Manual drop pin click
                 map.addListener("click", (event) => {
                     if (!isDropPinModeRef.current) return;
                     if (!event.latLng) return;
@@ -104,7 +115,6 @@ export default function MapPage() {
                     openManualPinFlow(lat, lng);
                 });
 
-                // Click Google POIs directly on map for quick add
                 map.addListener("click", (event) => {
                     if (isDropPinModeRef.current) return;
                     if (!event.placeId) return;
@@ -163,12 +173,12 @@ export default function MapPage() {
                     );
                 });
 
-                const restaurantRows = await fetchRestaurants();
+                const savedRestaurantRows = await fetchSavedRestaurantsForUser(user.id);
 
                 if (!isMounted) return;
 
-                setRestaurants(restaurantRows);
-                renderSavedMarkers(restaurantRows, map);
+                setRestaurants(savedRestaurantRows);
+                renderSavedMarkers(savedRestaurantRows, map);
             } catch (error) {
                 console.error(error);
                 setErrorMessage(error.message || "Failed to load map page.");
@@ -191,7 +201,7 @@ export default function MapPage() {
                 infoWindowRef.current.close();
             }
         };
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         async function fetchAutocompleteSuggestions() {
@@ -380,7 +390,7 @@ export default function MapPage() {
             data-quick-add-google-place="true"
             style="
               display: inline-block;
-              background: #292524;
+              background: rgb(203,84,51);
               color: white;
               border: none;
               border-radius: 8px;
@@ -446,7 +456,7 @@ export default function MapPage() {
     }
 
     async function handleSaveGoogleRestaurant() {
-        if (!selectedGooglePlace) return;
+        if (!selectedGooglePlace || !user) return;
 
         const google_place_id = selectedGooglePlace.id;
         const lat = selectedGooglePlace.location?.lat();
@@ -458,7 +468,10 @@ export default function MapPage() {
         }
 
         try {
-            const result = await saveGoogleRestaurantIfNotExists({
+            const existingRestaurantIds = new Set(restaurants.map((restaurant) => restaurant.id));
+
+            const result = await saveGoogleRestaurantForUser({
+                userId: user.id,
                 google_place_id,
                 name:
                     googleName.trim() ||
@@ -472,7 +485,9 @@ export default function MapPage() {
                 lng,
             });
 
-            if (result.alreadyExists) {
+            const alreadySavedByUser = existingRestaurantIds.has(result.restaurant.id);
+
+            if (alreadySavedByUser) {
                 alert("You already have this restaurant pinned.");
                 handleCancelGoogleSave();
                 return;
@@ -493,7 +508,7 @@ export default function MapPage() {
     }
 
     async function handleSaveManualRestaurant() {
-        if (!manualPin) return;
+        if (!manualPin || !user) return;
 
         if (!manualName.trim()) {
             alert("Please enter a restaurant name.");
@@ -501,7 +516,8 @@ export default function MapPage() {
         }
 
         try {
-            const newRestaurant = await createManualRestaurant({
+            const newRestaurant = await createManualRestaurantForUser({
+                userId: user.id,
                 name: manualName.trim(),
                 address: manualAddress.trim(),
                 lat: manualPin.lat,
@@ -516,8 +532,6 @@ export default function MapPage() {
             }
 
             handleCancelManualSave();
-
-            // Only turn off drop pin mode after successful save
             setIsDropPinMode(false);
         } catch (error) {
             console.error(error);
@@ -564,20 +578,18 @@ export default function MapPage() {
             .replaceAll("'", "&#039;");
     }
 
+    if (userErrorMessage) {
+        return <p>{userErrorMessage}</p>;
+    }
+
     return (
+
         <div className="relative h-full w-full overflow-hidden">
-            {(loading || errorMessage) && (
+            {errorMessage && (
                 <div className="absolute top-4 left-6 z-30">
-                    {loading && (
-                        <p className="rounded-md bg-white/90 px-3 py-2 text-sm text-stone-600 shadow">
-                            Loading map...
-                        </p>
-                    )}
-                    {errorMessage && (
-                        <p className="mt-2 rounded-md bg-white/90 px-3 py-2 text-sm text-red-600 shadow">
-                            {errorMessage}
-                        </p>
-                    )}
+                    <p className="mt-2 rounded-md bg-white/90 px-3 py-2 text-sm text-red-600 shadow">
+                        {errorMessage}
+                    </p>
                 </div>
             )}
 
@@ -590,7 +602,7 @@ export default function MapPage() {
                         setShouldFetchSuggestions(true);
                     }}
                     placeholder="Search restaurants or places..."
-                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 shadow-lg outline-none focus:border-stone-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 shadow-lg outline-none focus:border-[rgb(203,84,51)]"
                 />
 
                 {suggestions.length > 0 && (

@@ -1,25 +1,47 @@
 import { supabase } from "../lib/supabase";
+import { saveRestaurantForUser } from "./restaurant";
 
-export async function getUserDiaryRestaurants() {
-    const {data, error} = await supabase
-        .from("dish_entries")
+export async function getUserDiaryRestaurants(userId) {
+    const { data, error } = await supabase
+        .from("saved_restaurants")
         .select(`
             id,
             restaurant_id,
-            dish_name,
-            date_tried,
             restaurants (
                 id,
                 name,
                 address
             )
-            `)
-            .order("date_tried", { ascending: false });
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
     if (error) {
-        console.error("Error fetching diary restaurants:", error);
+        console.error("Error fetching saved restaurants:", error);
         throw error;
     }
-    return data
+
+    return data;
+}
+
+export async function getUserDishEntries(userId) {
+    const { data, error } = await supabase
+        .from("dish_entries")
+        .select(`
+            id,
+            restaurant_id,
+            dish_name,
+            date_tried
+        `)
+        .eq("user_id", userId)
+        .order("date_tried", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching dish entries:", error);
+        throw error;
+    }
+
+    return data;
 }
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
@@ -134,6 +156,11 @@ export async function createDishEntryWithOptionalPhoto({
     let uploadedPhotoPath = null;
 
     try {
+        await saveRestaurantForUser({
+            userId,
+            restaurantId,
+        });
+
         if (photoFile) {
             uploadedPhotoPath = await uploadDishPhoto({
                 file: photoFile,
