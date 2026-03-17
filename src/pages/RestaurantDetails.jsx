@@ -3,10 +3,10 @@ import TagPill from "../components/ui/TagPill";
 import { FaRegStar } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
 import { MdPeopleOutline, MdOutlineCalendarToday } from "react-icons/md";
-import RestaurantCard from "../components/restaurant/RestaurantCard";
+import DishCard from "../components/restaurant/DishCard";
 import { getRestaurantById } from "../services/restaurant";
 import { useEffect, useState, useMemo } from "react";
-import { getDishEntriesForRestaurant } from "../services/diary";
+import { getDishEntriesForRestaurant, getDishPhotoUrl } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 
 export default function RestaurantDetails() {
@@ -43,9 +43,25 @@ export default function RestaurantDetails() {
                 const restaurantData = await getRestaurantById(id)
                 const dishEntriesData = await getDishEntriesForRestaurant(id, user.id)
 
+                const dishEntriesWithPhotoUrls = await Promise.all(
+                    dishEntriesData.map(async (entry) => {
+                        if (!entry.photo_path) {
+                            return {
+                                ...entry,
+                                photoUrl: null,
+                            };
+                        }
+                        const photoUrl = await getDishPhotoUrl(entry.photo_path)
+                        return {
+                            ...entry,
+                            photoUrl,
+                        }
+                    })
+                )
+
                 setRestaurant(restaurantData)
-                setDishEntries(dishEntriesData)
-                console.log(dishEntriesData)
+                setDishEntries(dishEntriesWithPhotoUrls)
+                console.log(dishEntriesWithPhotoUrls)
             } catch (error) {
                 setErrorMessage(error.message || "Failed to get restaurant details.")
             } finally {
@@ -190,7 +206,28 @@ export default function RestaurantDetails() {
 
                     {/* List layout */}
                     <div>
-                        <RestaurantCard />
+                        {dishEntries.length === 0 ? (
+                            <div className="rounded-xl border border-stone-200 bg-white px-5 py-6 text-sm text-[rgb(137,122,114)] shadow-sm">
+                                No dish entries yet for this restaurant.
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-5">
+                                {dishEntries.map((entry) => (
+                                    <DishCard
+                                        key={entry.id}
+                                        dishName={entry.dish_name}
+                                        itemRating={entry.item_rating}
+                                        price={entry.price}
+                                        dateTried={entry.date_tried}
+                                        review={entry.review}
+                                        tags={entry.tags}
+                                        photoUrl={entry.photoUrl}
+                                    />
+                                ))}
+                            </div>
+                        )
+
+                        }
                     </div>
                 </>
             )}
