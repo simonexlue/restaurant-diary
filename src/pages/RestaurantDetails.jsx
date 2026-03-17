@@ -16,6 +16,7 @@ export default function RestaurantDetails() {
     const [errorMessage, setErrorMessage] = useState("")
     const [restaurant, setRestaurant] = useState(null)
     const [dishEntries, setDishEntries] = useState([])
+    const [sortBy, setSortBy] = useState("latest")
     const dishesTried = dishEntries.length
 
     useEffect(() => {
@@ -82,7 +83,7 @@ export default function RestaurantDetails() {
             return sum + Number(entry.item_rating || 0);
         }, 0)
         return (total / dishEntries.length).toFixed(1)
-    })
+    }, [dishEntries])
 
     const visits = useMemo(() => {
         const uniqueDates = new Set(
@@ -103,6 +104,37 @@ export default function RestaurantDetails() {
             )
         );
     }, [dishEntries]);
+
+    const sortedDishEntries = useMemo(() => {
+        const entriesCopy = [...dishEntries]
+
+        switch (sortBy) {
+            case "topRated":
+                return entriesCopy.sort((a, b) => {
+                    return Number(b.item_rating || 0) - Number(a.item_rating || 0)
+                })
+            case "priceHigh":
+                return entriesCopy.sort((a, b) => {
+                    return Number(b.price || 0) - Number(a.price || 0)
+                })
+            case "priceLow":
+                return entriesCopy.sort((a, b) => {
+                    return Number(a.price || 0) - Number(b.price || 0)
+                })
+            case "az":
+                return entriesCopy.sort((a, b) => {
+                    return String(a.dish_name || "") - String(b.dish_name || "")
+                })
+            case "latest":
+            default:
+                return entriesCopy.sort((a, b) => {
+                    const aDate = a.date_tried ? new Date(a.date_tried).getTime() : 0;
+                    const bDate = b.date_tried ? new Date(b.date_tried).getTime() : 0;
+
+                    return bDate - aDate;
+                });
+        }
+    }, [dishEntries, sortBy])
 
     return (
         <div className="flex flex-col gap-4 mx-auto w-full max-w-6xl">
@@ -195,12 +227,16 @@ export default function RestaurantDetails() {
                     {/* Dishes subheader */}
                     <div className="flex flex-row justify-between mt-4 items-center">
                         <p className="text-xl text-stone-800">My Dishes</p>
-                        <select className="text-sm text-stone-700 border rounded-lg border-stone-300 py-1 px-2">
-                            <option>Latest First</option>
-                            <option>Top Rated</option>
-                            <option>Price: High</option>
-                            <option>Price: Low</option>
-                            <option>A-Z</option>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="text-sm text-stone-700 border rounded-lg border-stone-300 py-1 px-2"
+                        >
+                            <option value="latest">Latest First</option>
+                            <option value="topRated">Top Rated</option>
+                            <option value="priceHigh">Price: High</option>
+                            <option value="priceLow">Price: Low</option>
+                            <option value="az">A-Z</option>
                         </select>
                     </div>
 
@@ -212,7 +248,7 @@ export default function RestaurantDetails() {
                             </div>
                         ) : (
                             <div className="flex flex-col gap-5">
-                                {dishEntries.map((entry) => (
+                                {sortedDishEntries.map((entry) => (
                                     <DishCard
                                         key={entry.id}
                                         dishName={entry.dish_name}

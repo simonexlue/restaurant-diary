@@ -2,6 +2,7 @@ import placeholder from "../../assets/auth-hero.jpg"
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import TagPill from "../ui/TagPill";
 import { useState } from "react";
+import { LuChevronUp, LuChevronDown } from "react-icons/lu";
 
 export default function DishCard({
     dishName,
@@ -44,8 +45,11 @@ export default function DishCard({
     }
 
     return (
-        <div className="border border-stone-300 bg-white rounded-lg flex flex-col md:flex-row md:gap-2 shadow-sm">
-            <div className="h-50 w-full overflow-hidden rounded-t-lg md:rounded-l-lg md:rounded-r-none md:h-40 md:w-100">
+        <div className="border border-stone-300 bg-white rounded-lg overflow-hidden flex flex-col md:flex-row md:gap-2 shadow-sm">
+            <div
+                className={`w-full overflow-hidden md:w-100 ${toggleNotes ? "h-50 md:min-h-40 md:self-stretch" : "h-50 md:h-40"
+                    }`}
+            >
                 <img
                     src={photoUrl || placeholder}
                     className="h-full w-full object-cover"
@@ -54,10 +58,10 @@ export default function DishCard({
 
             <div className="bg-white px-3 py-4 w-full rounded-lg flex flex-col md:py-6">
                 <div className="flex flex-col">
-                    <div className="flex flex-row justify-between items-center">
+                    <div className="flex flex-row justify-between items-start">
                         <p className="text-stone-800 md:text-xl">{dishName}</p>
                         <button className="text-sm" onClick={() => setToggleNotes((prev) => !prev)} >
-                            {toggleNotes ? "Close" : "Open"}
+                            {toggleNotes ? <LuChevronUp /> : <LuChevronDown />}
                         </button>
                     </div>
 
@@ -71,7 +75,8 @@ export default function DishCard({
                         <p>{formatDate(dateTried)}</p>
                     </div>
                 </div>
-                <div className="mt-auto">
+
+                <div className="mt-3">
                     {Array.isArray(tags) && tags.length > 0 ? (
                         tags.map((tag) => (
                             <TagPill key={tag} label={tag} />
@@ -80,8 +85,6 @@ export default function DishCard({
                         <p className="text-sm text-stone-400">No tags</p>
                     )}
                 </div>
-
-
 
                 {toggleNotes &&
                     (<div className="text-sm mt-3">
