@@ -1,8 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import DiaryCard from "../components/diary/DiaryCard";
-import { getUserDiaryRestaurants, getUserDishEntries } from "../services/diary";
+import { getUserDiaryRestaurants, getUserDishEntries, getDishPhotoUrl } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import TagPill from "../components/ui/TagPill";
+
+function normalizeTags(tags) {
+    if (!tags) return [];
+
+    if (Array.isArray(tags)) {
+        return tags.map((tag) => String(tag).trim()).filter(Boolean)
+    }
+
+    return [String(tags).trim()].filter(Boolean);
+}
 
 function buildDiaryCards(savedRestaurants, dishEntries) {
     const entriesByRestaurantId = new Map();
@@ -48,18 +60,11 @@ function buildDiaryCards(savedRestaurants, dishEntries) {
             let topTag = null;
 
             for (const entry of entries) {
-                if (!entry.tags || entry.tags.length === 0) continue;
-
-                const entryTags = Array.isArray(entry.tags) ? entry.tags : [entry.tags];
+                const entryTags = normalizeTags(entry.tags);
 
                 for (const tag of entryTags) {
-                    if (!tag) continue;
-
-                    const normalizedTag = String(tag).trim();
-                    if (!normalizedTag) continue;
-
-                    const currentCount = tagCounts.get(normalizedTag) || 0;
-                    tagCounts.set(normalizedTag, currentCount + 1);
+                    const currentCount = tagCounts.get(tag) || 0;
+                    tagCounts.set(tag, currentCount + 1);
                 }
             }
 
@@ -84,15 +89,11 @@ function buildDiaryCards(savedRestaurants, dishEntries) {
                     topTag = mostCommonTags[0];
                 } else {
                     for (const entry of sortedEntries) {
-                        if (!entry.tags || entry.tags.length === 0) continue;
-
-                        const entryTags = Array.isArray(entry.tags) ? entry.tags : [entry.tags];
+                        const entryTags = normalizeTags(entry.tags);
 
                         for (const tag of entryTags) {
-                            const normalizedTag = String(tag).trim();
-
-                            if (mostCommonTags.includes(normalizedTag)) {
-                                topTag = normalizedTag;
+                            if (mostCommonTags.includes(tag)) {
+                                topTag = tag;
                                 break;
                             }
                         }
@@ -105,6 +106,8 @@ function buildDiaryCards(savedRestaurants, dishEntries) {
             const recentPhoto =
                 sortedEntries.find((entry) => entry.photo_path)?.photo_path || null;
 
+            const allTags = Array.from(tagCounts.keys());
+
             return {
                 id: restaurant.id,
                 name: restaurant.name,
@@ -114,23 +117,55 @@ function buildDiaryCards(savedRestaurants, dishEntries) {
                 averageRating,
                 topTag,
                 recentPhoto,
+                allTags,
             };
         })
         .filter(Boolean);
+}
+
+function buildAllUniqueTags(dishEntries) {
+    const uniqueTags = new Set();
+
+    for (const entry of dishEntries) {
+        const entryTags = normalizeTags(entry.tags);
+
+        for (const tag of entryTags) {
+            uniqueTags.add(tag);
+        }
+    }
+
+    return Array.from(uniqueTags).sort((a, b) => a.localeCompare(b));
 }
 
 export default function MyDiary() {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
 
     const [searchRestaurant, setSearchRestaurant] = useState("");
+    const [sortOption, setSortOption] = useState("latest");
+    const [selectedTag, setSelectedTag] = useState("");
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [restaurants, setRestaurants] = useState([]);
+    const [allTags, setAllTags] = useState([]);
+    const [tagsExpanded, setTagsExpanded] = useState(false);
+    const [showExpandButton, setShowExpandButton] = useState(false);
+
+    const tagsContainerRef = useRef(null);
 
     useEffect(() => {
         if (!user) return;
         fetchDiaryData();
     }, [user]);
+
+    useEffect(() => {
+        const container = tagsContainerRef.current;
+        if (!container || tagsExpanded) {
+            setShowExpandButton(false);
+            return;
+        }
+
+        setShowExpandButton(container.scrollHeight > container.clientHeight + 2);
+    }, [allTags, tagsExpanded]);
 
     async function fetchDiaryData() {
         if (!user) return;
@@ -145,7 +180,28 @@ export default function MyDiary() {
             ]);
 
             const diaryCards = buildDiaryCards(savedRestaurants, dishEntries);
-            setRestaurants(diaryCards);
+            const uniqueTags = buildAllUniqueTags(dishEntries);
+
+            const diaryCardsWithImageUrls = await Promise.all(
+                diaryCards.map(async (restaurant) => {
+                    if (!restaurant.recentPhoto) {
+                        return {
+                            ...restaurant,
+                            imageUrl: null,
+                        };
+                    }
+
+                    const imageUrl = await getDishPhotoUrl(restaurant.recentPhoto);
+
+                    return {
+                        ...restaurant,
+                        imageUrl,
+                    };
+                })
+            );
+
+            setRestaurants(diaryCardsWithImageUrls);
+            setAllTags(uniqueTags);
         } catch (error) {
             setErrorMessage(error.message || "Failed to load restaurants");
         } finally {
@@ -154,14 +210,42 @@ export default function MyDiary() {
     }
 
     const filteredRestaurants = useMemo(() => {
-        if (!searchRestaurant.trim()) {
-            return restaurants;
+        let result = [...restaurants];
+
+        if (searchRestaurant.trim()) {
+            result = result.filter((restaurant) =>
+                restaurant.name.toLowerCase().includes(searchRestaurant.toLowerCase())
+            );
         }
 
-        return restaurants.filter((restaurant) =>
-            restaurant.name.toLowerCase().includes(searchRestaurant.toLowerCase())
-        );
-    }, [restaurants, searchRestaurant]);
+        if (selectedTag) {
+            result = result.filter((restaurant) =>
+                restaurant.allTags?.includes(selectedTag)
+            );
+        }
+
+        if (sortOption === "latest") {
+            result.sort((a, b) => {
+                if (!a.lastVisited) return 1;
+                if (!b.lastVisited) return -1;
+                return b.lastVisited.localeCompare(a.lastVisited);
+            });
+        }
+
+        if (sortOption === "highest-rating") {
+            result.sort((a, b) => {
+                const aRating = a.averageRating ?? -1;
+                const bRating = b.averageRating ?? -1;
+                return bRating - aRating;
+            });
+        }
+
+        if (sortOption === "a-z") {
+            result.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        return result;
+    }, [restaurants, searchRestaurant, selectedTag, sortOption]);
 
     const totalEntries = restaurants.reduce(
         (sum, restaurant) => sum + restaurant.entryCount,
@@ -199,29 +283,79 @@ export default function MyDiary() {
             </div>
 
             <div className="border border-gray-200 rounded-lg bg-white py-4 px-4 mt-6">
-                <div className="flex flex-row items-center gap-2">
-                    <input
-                        type="text"
-                        className="h-10 w-7/10 rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] text-sm focus:outline-[rgb(203,84,51)]"
-                        value={searchRestaurant}
-                        onChange={(e) => setSearchRestaurant(e.target.value)}
-                        placeholder="Search"
-                    />
-                    <select className="h-10 w-3/10 rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] text-sm text-stone-600 focus:outline-[rgb(203,84,51)] px-2">
-                        <option>Latest First</option>
-                        <option>Highest Rating</option>
-                        <option>A-Z</option>
-                    </select>
-                </div>
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-row items-center gap-2">
+                        <input
+                            type="text"
+                            className="h-10 flex-1 rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] text-sm focus:outline-[rgb(203,84,51)]"
+                            value={searchRestaurant}
+                            onChange={(e) => setSearchRestaurant(e.target.value)}
+                            placeholder="Search restaurants"
+                        />
 
-                {/* <div>
-                    Tags
-                </div> */}
+                        <select
+                            value={sortOption}
+                            onChange={(e) => setSortOption(e.target.value)}
+                            className="h-10 w-44 rounded-lg border border-gray-300 bg-[rgb(248,245,242)] px-3 text-sm text-stone-600 focus:outline-[rgb(203,84,51)]"
+                        >
+                            <option value="latest">Latest First</option>
+                            <option value="highest-rating">Highest Rating</option>
+                            <option value="a-z">A-Z</option>
+                        </select>
+                    </div>
+
+                    {allTags.length > 0 && (
+                        <div>
+                            <div
+                                ref={tagsContainerRef}
+                                className={`overflow-hidden ${tagsExpanded ? "" : "max-h-9"}`}
+                            >
+                                <div className="flex flex-wrap gap-2">
+                                    <TagPill
+                                        label="All"
+                                        selected={selectedTag === ""}
+                                        onClick={() => setSelectedTag("")}
+                                    />
+
+                                    {allTags.map((tag) => (
+                                        <TagPill
+                                            key={tag}
+                                            label={tag}
+                                            selected={selectedTag === tag}
+                                            onClick={() => setSelectedTag(tag)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+
+                            {(showExpandButton || tagsExpanded) && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTagsExpanded((prev) => !prev)}
+                                    className="mt-2 flex items-center gap-1 text-sm text-[rgb(137,122,114)]"
+                                >
+                                    {tagsExpanded ? (
+                                        <>
+                                            <FiChevronUp />
+                                            Show less
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiChevronDown />
+                                            Show all tags
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="mt-6">
                 <p className="text-[rgb(137,122,114)] text-sm">
                     Showing {filteredRestaurants.length} of {restaurants.length} restaurants
+                    {selectedTag ? ` • Tag: ${selectedTag}` : ""}
                 </p>
 
                 {filteredRestaurants.length > 0 ? (
@@ -236,7 +370,7 @@ export default function MyDiary() {
                                 lastVisited={restaurant.lastVisited}
                                 averageRating={restaurant.averageRating}
                                 topTag={restaurant.topTag}
-                                recentPhoto={restaurant.recentPhoto}
+                                imageUrl={restaurant.imageUrl}
                             />
                         ))}
                     </div>

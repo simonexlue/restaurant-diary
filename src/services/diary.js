@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import { saveRestaurantForUser } from "./restaurant";
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
 
 export async function getUserDiaryRestaurants(userId) {
     const { data, error } = await supabase
@@ -23,7 +24,7 @@ export async function getUserDiaryRestaurants(userId) {
         throw error;
     }
 
-    return data;
+    return data || [];
 }
 
 export async function getUserDishEntries(userId) {
@@ -46,7 +47,7 @@ export async function getUserDishEntries(userId) {
         throw error;
     }
 
-    return data;
+    return data || [];
 }
 
 export async function getDishPhotoUrl(photoPath) {
@@ -54,7 +55,7 @@ export async function getDishPhotoUrl(photoPath) {
 
     const { data, error } = await supabase.storage
         .from(DISH_PHOTOS_BUCKET)
-        .createSignedUrl(photoPath, 60 * 60);
+        .createSignedUrl(photoPath, SIGNED_URL_EXPIRES_IN_SECONDS);
 
     if (error) {
         console.error("Failed to create signed URL:", error);
@@ -64,33 +65,14 @@ export async function getDishPhotoUrl(photoPath) {
     return data?.signedUrl || null;
 }
 
-function formatDateForPostgres(date) {
-    if (!date) return null;
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-function sanitizeFileName(fileName) {
-    return fileName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9.-]/g, "");
-}
-
 export async function uploadDishPhoto({ file, userId, restaurantId }) {
     if (!file) return null;
 
-    const safeFileName = sanitizeFileName(file.name);
-    const fileExt = safeFileName.includes(".")
-        ? safeFileName.split(".").pop()
-        : "jpg";
-
-    const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
-    const filePath = `${userId}/${restaurantId}/${fileName}`;
+    const filePath = buildDishPhotoPath({
+        originalFileName: file.name,
+        userId,
+        restaurantId,
+    });
 
     const { error } = await supabase.storage
         .from(DISH_PHOTOS_BUCKET)
@@ -130,21 +112,18 @@ export async function createDishEntry({
     tags,
     photoPath,
 }) {
-    const payload = {
-        user_id: userId,
-        restaurant_id: restaurantId,
-        date_tried: formatDateForPostgres(dateTried),
-        dish_name: dishName.trim(),
-        item_rating: itemRating ?? null,
-        review: review?.trim() || null,
-        privacy: privacy || "private",
-        price:
-            price === "" || price === null || price === undefined
-                ? null
-                : Number(price),
-        tags: tags?.length ? tags : [],
-        photo_path: photoPath || null,
-    };
+    const payload = buildDishEntryPayload({
+        userId,
+        restaurantId,
+        dateTried,
+        dishName,
+        itemRating,
+        review,
+        privacy,
+        price,
+        tags,
+        photoPath,
+    });
 
     const { data, error } = await supabase
         .from("dish_entries")
@@ -187,7 +166,7 @@ export async function createDishEntryWithOptionalPhoto({
             });
         }
 
-        const entry = await createDishEntry({
+        return await createDishEntry({
             userId,
             restaurantId,
             dateTried,
@@ -199,8 +178,6 @@ export async function createDishEntryWithOptionalPhoto({
             tags,
             photoPath: uploadedPhotoPath,
         });
-
-        return entry;
     } catch (error) {
         if (uploadedPhotoPath) {
             await removeDishPhoto(uploadedPhotoPath);
@@ -208,4 +185,76 @@ export async function createDishEntryWithOptionalPhoto({
 
         throw error;
     }
+}
+
+function buildDishEntryPayload({
+    userId,
+    restaurantId,
+    dateTried,
+    dishName,
+    itemRating,
+    review,
+    privacy,
+    price,
+    tags,
+    photoPath,
+}) {
+    return {
+        user_id: userId,
+        restaurant_id: restaurantId,
+        date_tried: formatDateForPostgres(dateTried),
+        dish_name: dishName?.trim() || "",
+        item_rating: itemRating ?? null,
+        review: review?.trim() || null,
+        privacy: privacy || "private",
+        price: normalizePrice(price),
+        tags: normalizeTags(tags),
+        photo_path: photoPath || null,
+    };
+}
+
+function normalizePrice(price) {
+    if (price === "" || price === null || price === undefined) {
+        return null;
+    }
+
+    const numericPrice = Number(price);
+    return Number.isNaN(numericPrice) ? null : numericPrice;
+}
+
+function normalizeTags(tags) {
+    if (!Array.isArray(tags) || tags.length === 0) {
+        return [];
+    }
+
+    return tags
+        .map((tag) => String(tag).trim())
+        .filter(Boolean);
+}
+
+function buildDishPhotoPath({ originalFileName, userId, restaurantId }) {
+    const safeFileName = sanitizeFileName(originalFileName);
+    const fileExt = safeFileName.includes(".")
+        ? safeFileName.split(".").pop()
+        : "jpg";
+
+    const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
+    return `${userId}/${restaurantId}/${fileName}`;
+}
+
+function formatDateForPostgres(date) {
+    if (!date) return null;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function sanitizeFileName(fileName) {
+    return String(fileName)
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9.-]/g, "");
 }

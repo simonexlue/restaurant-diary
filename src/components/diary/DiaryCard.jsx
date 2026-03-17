@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import fallbackPhoto from "../../assets/auth-hero.jpg";
-import { getDishPhotoUrl } from "../../services/diary";
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
 
@@ -20,6 +18,46 @@ function formatLastVisited(dateString) {
     });
 }
 
+function formatAddress(address) {
+    if (!address) return "";
+
+    const parts = address.split(",");
+
+    if (parts.length >= 2) {
+        return `${parts[0].trim()}, ${parts[1].trim()}`;
+    }
+
+    return address;
+}
+
+function renderStars(rating) {
+    if (rating === null || rating === undefined) {
+        return (
+            <span className="text-xs text-[rgb(137,122,114)]">
+                No ratings yet
+            </span>
+        );
+    }
+
+    const stars = [];
+
+    for (let i = 1; i <= 5; i++) {
+        if (rating >= i) {
+            stars.push(<FaStar key={i} />);
+        } else if (rating >= i - 0.5) {
+            stars.push(<FaStarHalfAlt key={i} />);
+        } else {
+            stars.push(<FaRegStar key={i} />);
+        }
+    }
+
+    return (
+        <div className="flex items-center gap-1 text-[rgb(203,84,51)] text-sm">
+            {stars}
+        </div>
+    );
+}
+
 export default function DiaryCard({
     id,
     name,
@@ -28,85 +66,27 @@ export default function DiaryCard({
     lastVisited,
     averageRating,
     topTag,
-    recentPhoto,
+    imageUrl,
 }) {
-    const [imageUrl, setImageUrl] = useState(null);
-
-    function renderStars(rating) {
-        if (rating === null || rating === undefined) {
-            return <span className="text-xs text-[rgb(137,122,114)]">No ratings yet</span>
-        }
-
-        const stars = []
-
-        for (let i = 1; i <= 5; i++) {
-            if (rating >= i) {
-                stars.push(<FaStar key={i} />);
-            } else if (rating >= i - 0.5) {
-                stars.push(<FaStarHalfAlt key={i} />);
-            } else {
-                stars.push(<FaRegStar key={i} />);
-            }
-        }
-
-        return (
-            <div className="flex gap-1 text-[rgb(203,84,51)]">
-                {stars}
-            </div>
-        );
-    }
-
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadImage() {
-            if (!recentPhoto) {
-                if (isMounted) {
-                    setImageUrl(null);
-                }
-                return;
-            }
-
-            const signedUrl = await getDishPhotoUrl(recentPhoto);
-
-            if (isMounted) {
-                setImageUrl(signedUrl);
-            }
-        }
-
-        loadImage();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [recentPhoto]);
-
-    function formatAddress(address) {
-        if (!address) return "";
-        const parts = address.split(",")
-
-        if (parts.length >= 2) {
-            return `${parts[0].trim()}, ${parts[1].trim()}`;
-        }
-
-        return address
-    }
-
     return (
         <div className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white">
-            <div className="h-60 w-full bg-stone-100">
-                <img
-                    src={imageUrl || fallbackPhoto}
-                    alt={name}
-                    className="h-full w-full object-cover"
-                />
+            <div className="h-56 md:h-64 lg:h-56 w-full bg-stone-100">
+                {imageUrl ? (
+                    <img
+                        src={imageUrl}
+                        alt={name}
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-stone-400">
+                        No photo yet
+                    </div>
+                )}
             </div>
 
-            <div className="px-3 py-3 flex flex-col gap-1">
+            <div className="flex flex-1 flex-col px-3 py-3 gap-1">
                 <div className="flex flex-row justify-between items-center">
-                    <p className="text-xs text-[rgb(137,122,114)]">
-                        {renderStars(averageRating)}
-                    </p>
+                    {renderStars(averageRating)}
 
                     <p className="text-xs text-[rgb(137,122,114)]">
                         {formatLastVisited(lastVisited)}
@@ -114,9 +94,12 @@ export default function DiaryCard({
                 </div>
 
                 <p className="text-base font-medium text-stone-800">{name}</p>
-                <p className="text-sm text-[rgb(137,122,114)]">{formatAddress(address)}</p>
 
-                <div className="flex flex-row justify-between items-center">
+                <p className="text-sm text-[rgb(137,122,114)]">
+                    {formatAddress(address)}
+                </p>
+
+                <div className="mt-auto flex flex-row items-end justify-between pt-2">
                     <div className="flex flex-row items-center gap-1">
                         <RiBookOpenLine className="text-xs text-[rgb(137,122,114)]" />
                         <p className="text-xs text-[rgb(137,122,114)]">
@@ -124,14 +107,13 @@ export default function DiaryCard({
                         </p>
                     </div>
 
-
-                    {topTag && (
-                        <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="min-h-[28px] flex items-end">
+                        {topTag && (
                             <span className="text-xs rounded-full bg-stone-100 px-2 py-1 text-[rgb(203,84,51)] capitalize">
                                 {topTag}
                             </span>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
