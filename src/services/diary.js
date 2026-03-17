@@ -258,3 +258,27 @@ function sanitizeFileName(fileName) {
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9.-]/g, "");
 }
+
+export async function getDishEntriesForRestaurant(restaurantId, userId) {
+    if(!restaurantId) {
+        throw new Error("Restaurant id is missing.")
+    }
+
+    if(!userId) {
+        throw new Error("userId is missing")
+    }
+
+    const { data, error} = await supabase
+        .from("dish_entries")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("user_id", userId)
+        .order("date_tried", {ascending: false})
+        .order("created_at", {ascending: false})
+
+    if(error) {
+        throw error;
+    }
+
+    return data ?? []
+}

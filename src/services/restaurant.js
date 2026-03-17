@@ -225,3 +225,21 @@ export async function saveGoogleRestaurantForUser({
 
     return result;
 }
+
+export async function getRestaurantById(restaurant_id) {
+
+  if(!restaurant_id){
+    throw new Error("Restaurant id is missing.")
+  }
+
+  const {data, error} = await supabase
+    .from("restaurants")
+    .select("*")
+    .eq("id", restaurant_id)
+    .single();
+
+  if(error) {
+    throw error;
+  }
+  return data
+}
