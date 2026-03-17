@@ -1,6 +1,6 @@
-import fallbackPhoto from "../../assets/auth-hero.jpg";
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
+import { useNavigate } from "react-router-dom";
 
 function formatLastVisited(dateString) {
     if (!dateString) return "No visits yet";
@@ -68,8 +68,11 @@ export default function DiaryCard({
     topTag,
     imageUrl,
 }) {
+    const navigate = useNavigate();
     return (
-        <div className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white">
+        <div
+            onClick={() => navigate(`/restaurant/${id}`)}
+            className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white hover:cursor-pointer hover:border-[rgb(203,84,51)]">
             <div className="h-56 md:h-64 lg:h-56 w-full bg-stone-100">
                 {imageUrl ? (
                     <img
