@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import { getOrCreateRestaurantFromGooglePlace, getRestaurantById } from "../services/restaurant";
-import { createDishEntryWithOptionalPhoto } from "../services/diary";
+import { createDishEntryWithOptionalPhoto, updateDishEntryWithOptionalPhoto } from "../services/diary";
 import { useNavigate } from "react-router-dom";
 import useUserProfile from "../hooks/useUserProfile";
 import { useSearchParams } from "react-router-dom";
@@ -20,11 +20,18 @@ import PrivacySelector from "../components/diary/PrivacySelector";
 import TagsSelector from "../components/diary/TagsSelector";
 import SelectedRestaurantCard from "../components/diary/SelectedRestaurantCard";
 
-export default function CreateDishEntry() {
+export default function CreateDishEntry({
+    mode = "create",
+    initialEntry = null,
+    initialRestaurant = null,
+    onSuccess = null,
+    onCancelOverride = null,
+    isModal = false,
+}) {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams()
-    const restaurantId = searchParams.get("restaurantId");
+    const restaurantId = mode === "create" ? searchParams.get("restaurantId") : null;
     const [searchValue, setSearchValue] = useState("");
     const debouncedSearchValue = useDebouncedValue(searchValue, 350);
 
@@ -48,6 +55,7 @@ export default function CreateDishEntry() {
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
     const [isDragActive, setIsDragActive] = useState(false);
     const fileInputRef = useRef(null);
+    const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
 
     const [dishName, setDishName] = useState("");
     const [dishPrice, setDishPrice] = useState("");
@@ -165,6 +173,30 @@ export default function CreateDishEntry() {
         };
     }, [photoPreviewUrl]);
 
+    useEffect(() => {
+        if (mode !== "edit" || !initialEntry) {
+            return;
+        }
+
+        setSelectedRestaurant(initialRestaurant || null);
+        setSearchValue(initialRestaurant?.name || "");
+        setSuggestions([]);
+        setShouldFetchSuggestions(false);
+
+        setDateSelected(initialEntry.date_tried ? new Date(initialEntry.date_tried) : undefined);
+        setReviewInput(initialEntry.review || "");
+        setDishName(initialEntry.dish_name || "");
+        setDishPrice(initialEntry.price ?? "");
+        setDishPrivacy(initialEntry.privacy || "private");
+        setRating(initialEntry.item_rating || 0);
+        setSelectedTags(Array.isArray(initialEntry.tags) ? initialEntry.tags : []);
+        setCustomTagInput("");
+
+        setPhotoFile(null);
+        setPhotoPreviewUrl(initialEntry.photoUrl || "");
+        setRemoveExistingPhoto(false);
+    }, [mode, initialEntry, initialRestaurant]);
+
     async function handleSuggestionClick(suggestion) {
         try {
             setSelectingRestaurant(true);
@@ -249,25 +281,6 @@ export default function CreateDishEntry() {
         setDateSelected(date);
     }
 
-    function handleSelectedPhoto(file) {
-        if (!file) return;
-
-        if (!file.type.startsWith("image/")) {
-            setErrorMessage("Please upload an image file.");
-            return;
-        }
-
-        setErrorMessage("");
-        setPhotoFile(file);
-
-        if (photoPreviewUrl) {
-            URL.revokeObjectURL(photoPreviewUrl);
-        }
-
-        const previewUrl = URL.createObjectURL(file);
-        setPhotoPreviewUrl(previewUrl);
-    }
-
     function handlePhotoInputChange(event) {
         const file = event.target.files?.[0];
         handleSelectedPhoto(file);
@@ -300,18 +313,24 @@ export default function CreateDishEntry() {
         handleSelectedPhoto(file);
     }
 
-    function handleRemovePhoto() {
-        setPhotoFile(null);
+    function handleSelectedPhoto(file) {
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            setErrorMessage("Please upload an image file.");
+            return;
+        }
+
+        setErrorMessage("");
+        setPhotoFile(file);
+        setRemoveExistingPhoto(false);
 
         if (photoPreviewUrl) {
             URL.revokeObjectURL(photoPreviewUrl);
         }
 
-        setPhotoPreviewUrl("");
-
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        const previewUrl = URL.createObjectURL(file);
+        setPhotoPreviewUrl(previewUrl);
     }
 
     function normalizeTag(tag) {
@@ -366,53 +385,89 @@ export default function CreateDishEntry() {
     }
 
     function handleCancel() {
-        navigate("/diary")
+        if (onCancelOverride) {
+            onCancelOverride();
+            return;
+        }
+
+        if (selectedRestaurant?.id) {
+            navigate(`/restaurant/${selectedRestaurant.id}`);
+            return;
+        }
+
+        navigate("/diary");
     }
 
     async function handleSaveEntry(e) {
-        e.preventDefault()
+        e.preventDefault();
         if (savingEntry) return;
 
-        setErrorMessage("")
+        setErrorMessage("");
+
         if (!selectedRestaurant) {
-            setErrorMessage("Please select a restaurant.")
+            setErrorMessage("Please select a restaurant.");
             return;
         }
 
         if (!dateSelected) {
-            setErrorMessage("Please select a date visited.")
+            setErrorMessage("Please select a date visited.");
             return;
         }
 
         if (!dishName.trim()) {
             setErrorMessage("Please enter a dish name.");
-            return
+            return;
         }
 
         try {
-            setSavingEntry(true)
+            setSavingEntry(true);
 
             if (!user) {
                 throw new Error("You must be logged in to save an entry.");
             }
 
-            await createDishEntryWithOptionalPhoto({
-                userId: user.id,
-                restaurantId: selectedRestaurant.id,
-                dateTried: dateSelected,
-                dishName,
-                itemRating: rating || null,
-                review: reviewInput,
-                privacy: dishPrivacy || "private",
-                price: dishPrice,
-                tags: selectedTags,
-                photoFile,
-            });
+            let savedEntry;
+
+            if (mode === "edit" && initialEntry) {
+                savedEntry = await updateDishEntryWithOptionalPhoto({
+                    entryId: initialEntry.id,
+                    userId: user.id,
+                    restaurantId: selectedRestaurant.id,
+                    dateTried: dateSelected,
+                    dishName,
+                    itemRating: rating || null,
+                    review: reviewInput,
+                    privacy: dishPrivacy || "private",
+                    price: dishPrice,
+                    tags: selectedTags,
+                    photoFile,
+                    existingPhotoPath: initialEntry.photo_path,
+                    removeExistingPhoto,
+                });
+            } else {
+                savedEntry = await createDishEntryWithOptionalPhoto({
+                    userId: user.id,
+                    restaurantId: selectedRestaurant.id,
+                    dateTried: dateSelected,
+                    dishName,
+                    itemRating: rating || null,
+                    review: reviewInput,
+                    privacy: dishPrivacy || "private",
+                    price: dishPrice,
+                    tags: selectedTags,
+                    photoFile,
+                });
+            }
+
+            if (onSuccess) {
+                onSuccess(savedEntry);
+                return;
+            }
 
             resetForm();
             navigate(`/restaurant/${selectedRestaurant.id}`);
         } catch (error) {
-            setErrorMessage(error.message || "Failed to save dish entry")
+            setErrorMessage(error.message || `Failed to ${mode === "edit" ? "update" : "save"} dish entry`);
         } finally {
             setSavingEntry(false);
         }
@@ -454,6 +509,21 @@ export default function CreateDishEntry() {
         }
     }
 
+    function handleRemovePhoto() {
+        setPhotoFile(null);
+
+        if (photoPreviewUrl) {
+            URL.revokeObjectURL(photoPreviewUrl);
+        }
+
+        setPhotoPreviewUrl("");
+        setRemoveExistingPhoto(true);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    }
+
     if (profileLoading) {
         return <p>Loading...</p>;
     }
@@ -463,10 +533,22 @@ export default function CreateDishEntry() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-            <div className="flex flex-col gap-1">
-                <h1 className="text-3xl text-stone-700">New Entry</h1>
-                <p className="text-[rgb(137,122,114)]">Log a dish you tried at a restaurant</p>
+        <div className={isModal ? "flex flex-col gap-6" : "mx-auto flex w-full max-w-3xl flex-col gap-6"}>
+            <div className="flex flex-row justify-between items-start">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl text-stone-700">
+                        {mode === "edit" ? "Edit Entry" : "New Entry"}
+                    </h1>
+                    <p className="text-[rgb(137,122,114)]">
+                        {mode === "edit" ? "Update your dish entry" : "Log a dish you tried at a restaurant"}
+                    </p>
+                </div>
+                <button
+                    onClick={handleCancel}
+                    type="button"
+                    disabled={savingEntry}
+                    className="text-2xl text-stone-800 hover:cursor-pointer"
+                >x</button>
             </div>
 
             <form onSubmit={handleSaveEntry} className="flex flex-col gap-6">
@@ -655,7 +737,13 @@ export default function CreateDishEntry() {
                         disabled={savingEntry}
                         className="w-1/2 mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer"
                     >
-                        {savingEntry ? "Saving..." : "Save Entry"}
+                        {savingEntry
+                            ? mode === "edit"
+                                ? "Updating..."
+                                : "Saving..."
+                            : mode === "edit"
+                                ? "Update Entry"
+                                : "Save Entry"}
                     </button>
                 </div>
             </form>

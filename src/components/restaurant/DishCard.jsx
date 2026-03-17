@@ -3,6 +3,8 @@ import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import TagPill from "../ui/TagPill";
 import { useState } from "react";
 import { LuChevronUp, LuChevronDown } from "react-icons/lu";
+import { HiOutlinePencil } from "react-icons/hi2";
+import { GoTrash } from "react-icons/go";
 
 export default function DishCard({
     dishName,
@@ -14,6 +16,8 @@ export default function DishCard({
     photoUrl,
     isOpen,
     onToggle,
+    onEdit,
+    onDelete,
 }) {
     function formatDate(dateString) {
         if (!dateString) {
@@ -58,12 +62,31 @@ export default function DishCard({
                 <div className="flex flex-col">
                     <div className="flex flex-row justify-between items-start">
                         <p className="text-stone-800 md:text-xl">{dishName}</p>
-                        <button
-                            className="text-sm"
-                            onClick={onToggle}
-                        >
-                            {isOpen ? <LuChevronUp /> : <LuChevronDown />}
-                        </button>
+                        <div className="flex items-center gap-1 mr-3">
+                            <button
+                                type="button"
+                                className="text-md px-2 py-1 text-green-700 hover:cursor-pointer"
+                                onClick={onEdit}
+                            >
+                                <HiOutlinePencil />
+                            </button>
+
+                            <button
+                                type="button"
+                                className="text-md px-2 py-1 text-red-400 hover:cursor-pointer"
+                                onClick={onDelete}
+                            >
+                                <GoTrash />
+                            </button>
+
+                            <button
+                                type="button"
+                                className="text-lg hover:cursor-pointer text-stone-800"
+                                onClick={onToggle}
+                            >
+                                {isOpen ? <LuChevronUp /> : <LuChevronDown />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-row gap-3 text-sm text-[rgb(137,122,114)] items-center mt-2 md:text-md md:mt-2">

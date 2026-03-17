@@ -282,3 +282,165 @@ export async function getDishEntriesForRestaurant(restaurantId, userId) {
 
     return data ?? []
 }
+
+export async function getDishEntryById(entryId, userId) {
+        if (!entryId) {
+        throw new Error("Dish entry id is missing.");
+    }
+
+    if (!userId) {
+        throw new Error("User id is missing.");
+    }
+
+    const { data, error } = await supabase
+        .from("dish_entries")
+        .select("*")
+        .eq("id", entryId)
+        .eq("user_id", userId)
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}
+
+export async function deleteDishEntry({ entryId, userId, photoPath }) {
+    if (!entryId) {
+        throw new Error("Dish entry id is required.");
+    }
+
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    const { error } = await supabase
+        .from("dish_entries")
+        .delete()
+        .eq("id", entryId)
+        .eq("user_id", userId);
+
+    if (error) {
+        throw error;
+    }
+
+    if (photoPath) {
+        await removeDishPhoto(photoPath);
+    }
+}
+
+export async function updateDishEntry({
+    entryId,
+    userId,
+    restaurantId,
+    dateTried,
+    dishName,
+    itemRating,
+    review,
+    privacy,
+    price,
+    tags,
+    photoPath,
+}) {
+    if (!entryId) {
+        throw new Error("Dish entry id is required.");
+    }
+
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    const payload = buildDishEntryPayload({
+        userId,
+        restaurantId,
+        dateTried,
+        dishName,
+        itemRating,
+        review,
+        privacy,
+        price,
+        tags,
+        photoPath,
+    });
+
+    delete payload.user_id;
+    delete payload.restaurant_id;
+
+    const { data, error } = await supabase
+        .from("dish_entries")
+        .update(payload)
+        .eq("id", entryId)
+        .eq("user_id", userId)
+        .select()
+        .single();
+
+    if (error) {
+        throw new Error(error.message || "Failed to update dish entry.");
+    }
+
+    return data;
+}
+
+export async function updateDishEntryWithOptionalPhoto({
+    entryId,
+    userId,
+    restaurantId,
+    dateTried,
+    dishName,
+    itemRating,
+    review,
+    privacy,
+    price,
+    tags,
+    photoFile,
+    existingPhotoPath,
+    removeExistingPhoto = false,
+}) {
+    let nextPhotoPath = existingPhotoPath || null;
+    let uploadedNewPhotoPath = null;
+
+    try {
+        if (photoFile) {
+            uploadedNewPhotoPath = await uploadDishPhoto({
+                file: photoFile,
+                userId,
+                restaurantId,
+            });
+
+            nextPhotoPath = uploadedNewPhotoPath;
+        } else if (removeExistingPhoto) {
+            nextPhotoPath = null;
+        }
+
+        const updatedEntry = await updateDishEntry({
+            entryId,
+            userId,
+            restaurantId,
+            dateTried,
+            dishName,
+            itemRating,
+            review,
+            privacy,
+            price,
+            tags,
+            photoPath: nextPhotoPath,
+        });
+
+        if (photoFile && existingPhotoPath) {
+            await removeDishPhoto(existingPhotoPath);
+        }
+
+        if (removeExistingPhoto && existingPhotoPath) {
+            await removeDishPhoto(existingPhotoPath);
+        }
+
+        return updatedEntry;
+    } catch (error) {
+        if (uploadedNewPhotoPath) {
+            await removeDishPhoto(uploadedNewPhotoPath);
+        }
+
+        throw error;
+    }
+}

@@ -6,9 +6,10 @@ import { MdPeopleOutline, MdOutlineCalendarToday } from "react-icons/md";
 import DishCard from "../components/restaurant/DishCard";
 import { getRestaurantById } from "../services/restaurant";
 import { useEffect, useState, useMemo } from "react";
-import { getDishEntriesForRestaurant, getDishPhotoUrl } from "../services/diary";
+import { getDishEntriesForRestaurant, getDishPhotoUrl, deleteDishEntry } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
+import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
 
 export default function RestaurantDetails() {
     const { id } = useParams();
@@ -19,6 +20,8 @@ export default function RestaurantDetails() {
     const [dishEntries, setDishEntries] = useState([])
     const [sortBy, setSortBy] = useState("latest")
     const [openEntryId, setOpenEntryId] = useState(null);
+    const [editingEntryId, setEditingEntryId] = useState(null);
+    const [deletingEntryId, setDeletingEntryId] = useState(null);
     const dishesTried = dishEntries.length
     const navigate = useNavigate();
 
@@ -76,6 +79,34 @@ export default function RestaurantDetails() {
         loadRestaurant();
 
     }, [id, user, profileLoading, profileErrorMessage])
+
+    async function refreshRestaurantEntries() {
+        try {
+            const dishEntriesData = await getDishEntriesForRestaurant(id, user.id);
+
+            const dishEntriesWithPhotoUrls = await Promise.all(
+                dishEntriesData.map(async (entry) => {
+                    if (!entry.photo_path) {
+                        return {
+                            ...entry,
+                            photoUrl: null,
+                        };
+                    }
+
+                    const photoUrl = await getDishPhotoUrl(entry.photo_path);
+
+                    return {
+                        ...entry,
+                        photoUrl,
+                    };
+                })
+            );
+
+            setDishEntries(dishEntriesWithPhotoUrls);
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to refresh dish entries.");
+        }
+    }
 
     const averageRating = useMemo(() => {
         if (dishEntries.length === 0) {
@@ -138,6 +169,27 @@ export default function RestaurantDetails() {
                 });
         }
     }, [dishEntries, sortBy])
+
+    // Delete
+    async function handleDeleteEntry(entry) {
+        const confirmed = window.confirm(`Delete ${entry.dish_name}?`)
+        if (!confirmed) return;
+
+        try {
+            setDeletingEntryId(entry.id)
+            await deleteDishEntry({
+                entryId: entry.id,
+                userId: user.id,
+                photoPath: entry.photoPath,
+            })
+            setDishEntries((prev) => prev.filter((dish) => dish.id !== entry.id))
+            setOpenEntryId((prev) => (prev === entry.id ? null : prev));
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to delete dish entry")
+        } finally {
+            setDeletingEntryId(null)
+        }
+    }
 
     return (
         <div className="flex flex-col gap-4 mx-auto w-full max-w-6xl">
@@ -267,6 +319,8 @@ export default function RestaurantDetails() {
                                         onToggle={() =>
                                             setOpenEntryId((prev) => (prev === entry.id ? null : entry.id))
                                         }
+                                        onEdit={() => setEditingEntryId(entry.id)}
+                                        onDelete={() => handleDeleteEntry(entry)}
                                     />
                                 ))}
                             </div>
@@ -275,6 +329,16 @@ export default function RestaurantDetails() {
                         }
                     </div>
                 </>
+            )}
+            {editingEntryId && (
+                <EditDishEntryModal
+                    entryId={editingEntryId}
+                    onClose={() => setEditingEntryId(null)}
+                    onSaved={async () => {
+                        await refreshRestaurantEntries();
+                        setEditingEntryId(null);
+                    }}
+                />
             )}
         </div>
     );
