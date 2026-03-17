@@ -9,28 +9,34 @@ export default function RestaurantDetails() {
     const { id } = useParams();
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 mx-auto w-full max-w-6xl">
             {/* Tags, Title, Address, Add an entry button */}
-            <div className="flex flex-col gap-3">
-                {/* Tags */}
-                <div className="flex gap-2">
-                    <TagPill label="Japanese" />
-                    <TagPill label="Sushi" />
-                    <TagPill label="Date Night" />
+            <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-start">
+                <div className="flex flex-col gap-3">
+                    {/* Tags */}
+                    <div className="flex gap-2">
+                        <TagPill label="Japanese" />
+                        <TagPill label="Sushi" />
+                        <TagPill label="Date Night" />
+                    </div>
+
+                    {/* Title */}
+                    <h1 className="text-3xl text-stone-700">
+                        Toyo Sushi Restaurant
+                    </h1>
+                    {/* Address */}
+                    <p className="text-[rgb(137,122,114)] text-sm">23 Commerce St, New York, NY 10014</p>
                 </div>
 
-                {/* Title */}
-                <h1 className="text-3xl text-stone-700">
-                    Toyo Sushi Restaurant
-                </h1>
-                {/* Address */}
-                <p className="text-[rgb(137,122,114)] text-sm">23 Commerce St, New York, NY 10014</p>
                 {/* Button  */}
-                <button className="w-1/4 mb-4 h-10 mt-2 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">+ Add Dish</button>
+                <div>
+                    <button className="w-1/4 md:w-full md:px-3 mb-4 h-10 mt-2 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">+ Add Dish</button>
+                </div>
+
             </div>
 
             {/* Metrics */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="flex flex-row items-center justify-start gap-4 border rounded-lg bg-white border-stone-200 py-4 px-5 shadow-sm">
                     <div className="bg-[rgb(253,246,244)] rounded-4xl p-3">
                         <FaRegStar size={24} className="text-[rgb(203,84,51)]" />
