@@ -8,6 +8,7 @@ import { getRestaurantById } from "../services/restaurant";
 import { useEffect, useState, useMemo } from "react";
 import { getDishEntriesForRestaurant, getDishPhotoUrl } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
+import { useNavigate } from "react-router-dom";
 
 export default function RestaurantDetails() {
     const { id } = useParams();
@@ -17,7 +18,9 @@ export default function RestaurantDetails() {
     const [restaurant, setRestaurant] = useState(null)
     const [dishEntries, setDishEntries] = useState([])
     const [sortBy, setSortBy] = useState("latest")
+    const [openEntryId, setOpenEntryId] = useState(null);
     const dishesTried = dishEntries.length
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (profileLoading) {
@@ -152,7 +155,7 @@ export default function RestaurantDetails() {
                     <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-start">
                         <div className="flex flex-col gap-3">
                             {/* Tags */}
-                            <div>
+                            <div className="flex flex-row gap-2">
                                 {restaurantTags.length > 0 ? (
                                     restaurantTags.map((tag) => (
                                         <TagPill key={tag} label={tag} />
@@ -174,7 +177,9 @@ export default function RestaurantDetails() {
 
                         {/* Button  */}
                         <div>
-                            <button className="w-1/4 md:w-full md:px-3 mb-4 h-10 mt-2 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">
+                            <button
+                                onClick={() => navigate(`/diary/new?restaurantId=${id}`)}
+                                className="w-1/4 md:w-full md:px-3 mb-4 h-10 mt-2 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer">
                                 + Add Dish
                             </button>
                         </div>
@@ -258,6 +263,10 @@ export default function RestaurantDetails() {
                                         review={entry.review}
                                         tags={entry.tags}
                                         photoUrl={entry.photoUrl}
+                                        isOpen={openEntryId === entry.id}
+                                        onToggle={() =>
+                                            setOpenEntryId((prev) => (prev === entry.id ? null : entry.id))
+                                        }
                                     />
                                 ))}
                             </div>

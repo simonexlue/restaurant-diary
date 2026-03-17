@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
-import { getOrCreateRestaurantFromGooglePlace } from "../services/restaurant";
+import { getOrCreateRestaurantFromGooglePlace, getRestaurantById } from "../services/restaurant";
 import { createDishEntryWithOptionalPhoto } from "../services/diary";
 import { useNavigate } from "react-router-dom";
 import useUserProfile from "../hooks/useUserProfile";
+import { useSearchParams } from "react-router-dom";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
@@ -22,6 +23,8 @@ import SelectedRestaurantCard from "../components/diary/SelectedRestaurantCard";
 export default function CreateDishEntry() {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams()
+    const restaurantId = searchParams.get("restaurantId");
     const [searchValue, setSearchValue] = useState("");
     const debouncedSearchValue = useDebouncedValue(searchValue, 350);
 
@@ -216,6 +219,32 @@ export default function CreateDishEntry() {
         };
     }, []);
 
+    useEffect(() => {
+        async function prefillRestaurant() {
+            if (!restaurantId) {
+                return;
+            }
+
+            try {
+                setSelectingRestaurant(true);
+                setErrorMessage("");
+
+                const restaurant = await getRestaurantById(restaurantId);
+
+                setSelectedRestaurant(restaurant);
+                setSearchValue(restaurant.name || "");
+                setSuggestions([]);
+                setShouldFetchSuggestions(false);
+            } catch (error) {
+                setErrorMessage(error.message || "Failed to load selected restaurant.");
+            } finally {
+                setSelectingRestaurant(false);
+            }
+        }
+
+        prefillRestaurant();
+    }, [restaurantId]);
+
     function handleDateSelect(date) {
         setDateSelected(date);
     }
@@ -381,7 +410,7 @@ export default function CreateDishEntry() {
             });
 
             resetForm();
-            navigate("/diary");
+            navigate(`/restaurant/${selectedRestaurant.id}`);
         } catch (error) {
             setErrorMessage(error.message || "Failed to save dish entry")
         } finally {

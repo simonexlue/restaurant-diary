@@ -12,9 +12,9 @@ export default function DishCard({
     review,
     tags = [],
     photoUrl,
+    isOpen,
+    onToggle,
 }) {
-    const [toggleNotes, setToggleNotes] = useState(false)
-
     function formatDate(dateString) {
         if (!dateString) {
             return "No date";
@@ -45,23 +45,24 @@ export default function DishCard({
     }
 
     return (
-        <div className="border border-stone-300 bg-white rounded-lg overflow-hidden flex flex-col md:flex-row md:gap-2 shadow-sm">
-            <div
-                className={`w-full overflow-hidden md:w-100 ${toggleNotes ? "h-50 md:min-h-40 md:self-stretch" : "h-50 md:h-40"
-                    }`}
-            >
+        <div className="border border-stone-300 bg-white rounded-lg overflow-hidden grid grid-cols-1 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-3 shadow-sm">
+            <div className="relative h-50 md:h-full min-h-40 overflow-hidden">
                 <img
                     src={photoUrl || placeholder}
-                    className="h-full w-full object-cover"
+                    alt={dishName || "Dish photo"}
+                    className="absolute inset-0 h-full w-full object-cover"
                 />
             </div>
 
-            <div className="bg-white px-3 py-4 w-full rounded-lg flex flex-col md:py-6">
+            <div className="bg-white px-3 py-4 w-full flex flex-col md:py-6">
                 <div className="flex flex-col">
                     <div className="flex flex-row justify-between items-start">
                         <p className="text-stone-800 md:text-xl">{dishName}</p>
-                        <button className="text-sm" onClick={() => setToggleNotes((prev) => !prev)} >
-                            {toggleNotes ? <LuChevronUp /> : <LuChevronDown />}
+                        <button
+                            className="text-sm"
+                            onClick={onToggle}
+                        >
+                            {isOpen ? <LuChevronUp /> : <LuChevronDown />}
                         </button>
                     </div>
 
@@ -71,27 +72,28 @@ export default function DishCard({
                         </div>
 
                         <p>{price ? `$${price}` : "No price"}</p>
-
                         <p>{formatDate(dateTried)}</p>
                     </div>
                 </div>
 
                 <div className="mt-3">
                     {Array.isArray(tags) && tags.length > 0 ? (
-                        tags.map((tag) => (
-                            <TagPill key={tag} label={tag} />
-                        ))
+                        <div className="flex flex-wrap gap-2">
+                            {tags.map((tag) => (
+                                <TagPill key={tag} label={tag} />
+                            ))}
+                        </div>
                     ) : (
                         <p className="text-sm text-stone-400">No tags</p>
                     )}
                 </div>
 
-                {toggleNotes &&
-                    (<div className="text-sm mt-3">
+                {isOpen && (
+                    <div className="text-sm mt-3">
                         {review || "No notes added."}
                     </div>
-                    )}
+                )}
             </div>
         </div>
-    )
+    );
 }

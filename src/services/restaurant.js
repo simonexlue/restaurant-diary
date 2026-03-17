@@ -157,19 +157,37 @@ export async function getOrCreateRestaurantFromGooglePlace(place) {
 }
 
 export async function saveRestaurantForUser({ userId, restaurantId }) {
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    if (!restaurantId) {
+        throw new Error("Restaurant id is required.");
+    }
+
+    const { data: existingRow, error: existingError } = await supabase
+        .from("saved_restaurants")
+        .select("id, user_id, restaurant_id")
+        .eq("user_id", userId)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle();
+
+    if (existingError) {
+        throw existingError;
+    }
+
+    if (existingRow) {
+        return existingRow;
+    }
+
     const { data, error } = await supabase
         .from("saved_restaurants")
-        .upsert(
-            [
-                {
-                    user_id: userId,
-                    restaurant_id: restaurantId,
-                },
-            ],
+        .insert([
             {
-                onConflict: "user_id,restaurant_id",
-            }
-        )
+                user_id: userId,
+                restaurant_id: restaurantId,
+            },
+        ])
         .select()
         .single();
 
