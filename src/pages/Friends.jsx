@@ -6,6 +6,8 @@ import SentRequestCard from "../components/friends/SentRequestCard";
 import { useState } from "react";
 import FriendRequestCard from "../components/friends/FriendRequestCard";
 import AddFriendModal from "../components/friends/AddFriendModal";
+import { IoPaperPlaneOutline } from "react-icons/io5";
+import { IoBookOutline } from "react-icons/io5";
 
 const friendsMock = [
     {
@@ -165,27 +167,30 @@ export default function Friends() {
             {/* Tabs */}
             <div className="flex flex-row gap-3 bg-[rgb(237,232,228)] rounded-lg px-3 py-2 justify-start items-center w-max">
                 <button
-                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "friends"
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "friends"
                         ? "bg-white text-stone-700"
                         : "text-stone-700"}`}
                     onClick={() => setActiveTab("friends")}
                 >
+                    <MdPeopleOutline size={20} />
                     Friends
                 </button>
                 <button
-                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "feed"
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "feed"
                         ? "bg-white text-stone-700"
                         : "text-stone-700"}`}
                     onClick={() => setActiveTab("feed")}
                 >
+                    <IoBookOutline className="relative top-[1px]" />
                     Feed
                 </button>
                 <button
-                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "sent"
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "sent"
                         ? "bg-white text-stone-700"
                         : "text-stone-700"}`}
                     onClick={() => setActiveTab("sent")}
                 >
+                    <IoPaperPlaneOutline className="relative top-[1px]" />
                     Sent
                 </button>
             </div>
