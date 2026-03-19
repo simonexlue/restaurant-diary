@@ -4,6 +4,111 @@ import { MdPeopleOutline } from "react-icons/md";
 import FriendsReviewCard from "../components/friends/FriendsReviewCard";
 import SentRequestCard from "../components/friends/SentRequestCard";
 import { useState } from "react";
+
+const friendsMock = [
+    {
+        id: 1,
+        displayName: "Sarah Mitchell",
+        username: "sarahm",
+        entryCount: 67,
+        mutualCount: 3,
+        recentRestaurant: "Din Tai Fung",
+        recentTime: "5h ago",
+        avatarUrl: null
+    },
+    {
+        id: 2,
+        displayName: "Alex Chen",
+        username: "alexc",
+        entryCount: 42,
+        mutualCount: 5,
+        recentRestaurant: "Kinton Ramen",
+        recentTime: "1d ago",
+        avatarUrl: null
+    },
+    {
+        id: 3,
+        displayName: "Emily Carter",
+        username: "emilyc",
+        entryCount: 89,
+        mutualCount: 2,
+        recentRestaurant: "Nobu Downtown",
+        recentTime: "2d ago",
+        avatarUrl: null
+    }
+];
+
+const friendRequestsMock = [
+    {
+        id: 1,
+        displayName: "Sydney Park",
+        username: "oliviap",
+        mutualCount: 3,
+        requestedAt: "3 hours ago"
+    },
+    {
+        id: 2,
+        displayName: "Tom Walker",
+        username: "tomw",
+        mutualCount: 2,
+        requestedAt: "5 days ago"
+    }
+];
+
+const feedMock = [
+    {
+        id: 1,
+        displayName: "Sarah Mitchell",
+        userAvatar: null,
+        date: "2025-03-15",
+        restaurantName: "Nobu Downtown",
+        location: "New York, USA",
+        rating: 4.5,
+        dishCount: 4,
+        photoUrl: null
+    },
+    {
+        id: 2,
+        displayName: "Alex Chen",
+        userAvatar: null,
+        date: "2025-03-14",
+        restaurantName: "Kinton Ramen",
+        location: "Toronto, Canada",
+        rating: 4,
+        dishCount: 2,
+        photoUrl: null
+    },
+    {
+        id: 3,
+        displayName: "Emily Carter",
+        userAvatar: null,
+        date: "2025-03-12",
+        restaurantName: "Din Tai Fung",
+        location: "Vancouver, Canada",
+        rating: 5,
+        dishCount: 3,
+        photoUrl: null
+    }
+];
+
+const sentRequestsMock = [
+    {
+        id: 1,
+        displayName: "Daniel Lee",
+        username: "danl",
+        sentAt: "1 day ago",
+        status: "pending"
+    },
+    {
+        id: 2,
+        displayName: "Jessica Wong",
+        username: "jessw",
+        sentAt: "3 days ago",
+        status: "pending"
+    }
+];
+
+
 export default function Friends() {
     const [activeTab, setActiveTab] = useState("friends");
 
@@ -36,49 +141,34 @@ export default function Friends() {
                     </div>
 
                     <div >
-                        <p className="text-stone-800">Friend Requests (2)</p>
+                        <p className="text-stone-800">
+                            Friend Requests ({friendRequestsMock.length})
+                        </p>
                         <p className="text-[rgb(137,122,114)] text-sm">People who want to connect</p>
                     </div>
 
                 </div>
 
-                <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
-                    <div className="flex flex-row gap-3 items-center">
-                        {/* Profile pic placeholder */}
-                        <div className="bg-white rounded-4xl p-3">
-                            <MdPeopleOutline />
+                {friendRequestsMock.map((request) =>
+                    <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
+                        <div className="flex flex-row gap-3 items-center">
+                            {/* Profile pic placeholder */}
+                            <div className="bg-white rounded-4xl p-3">
+                                <MdPeopleOutline />
+                            </div>
+
+                            <div >
+                                <p className="text-stone-800">{request.displayName}</p>
+                                <p className="text-[rgb(137,122,114)] text-sm">{request.mutualCount} mutual friends | {request.requestedAt}</p>
+                            </div>
                         </div>
 
-                        <div >
-                            <p className="text-stone-800">Olivia Park</p>
-                            <p className="text-[rgb(137,122,114)] text-sm">3 mutual friends | 3 hours ago</p>
+                        <div className="flex flex-row gap-3" >
+                            <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+</button>
+                            <button className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)]">-</button>
                         </div>
                     </div>
-
-                    <div className="flex flex-row gap-3" >
-                        <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+</button>
-                        <button className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)]">-</button>
-                    </div>
-                </div>
-
-                <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
-                    <div className="flex flex-row gap-3 items-center">
-                        {/* Profile pic placeholder */}
-                        <div className="bg-white rounded-4xl p-3">
-                            <MdPeopleOutline />
-                        </div>
-
-                        <div >
-                            <p className="text-stone-800">Tom Walker</p>
-                            <p className="text-[rgb(137,122,114)] text-sm">2 mutual friends | 5 days ago</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-row gap-3" >
-                        <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+</button>
-                        <button className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)]">-</button>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* Tabs */}
@@ -119,9 +209,18 @@ export default function Friends() {
                     />
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                        <FriendsCard />
-                        <FriendsCard />
-                        <FriendsCard />
+                        {friendsMock.map((friend) => (
+                            <FriendsCard
+                                id={friend.id}
+                                displayName={friend.displayName}
+                                username={friend.username}
+                                entryCount={friend.entryCount}
+                                mutualCount={friend.mutualCount}
+                                recentRestaurant={friend.recentRestaurant}
+                                recentTime={friend.recentTime}
+                                avatarUrl={friend.avatarUrl}
+                            />
+                        ))}
                     </div>
                 </div>
             )}
@@ -133,9 +232,19 @@ export default function Friends() {
                         Recent entries from your friends
                     </p>
                     <div className="flex flex-col gap-4">
-                        <FriendsReviewCard />
-                        <FriendsReviewCard />
-                        <FriendsReviewCard />
+                        {feedMock.map((feed) => (
+                            <FriendsReviewCard
+                                id={feed.id}
+                                displayName={feed.displayName}
+                                userAvatar={feed.userAvatar}
+                                date={feed.date}
+                                restaurantName={feed.restaurantName}
+                                location={feed.location}
+                                rating={feed.rating}
+                                dishCount={feed.dishCount}
+                                photoUrl={feed.photoUrl}
+                            />
+                        ))}
                     </div>
                 </div>
             )}
@@ -143,8 +252,16 @@ export default function Friends() {
 
             {/* Sent Tab Content */}
             {activeTab === "sent" && (
-                <div>
-                    <SentRequestCard />
+                <div className="flex flex-col gap-2">
+                    {sentRequestsMock.map((request) => (
+                        <SentRequestCard
+                            id={request.id}
+                            displayName={request.displayName}
+                            username={request.username}
+                            sentAt={request.sentAt}
+                            status={request.status}
+                        />
+                    ))}
                 </div>
             )}
 
