@@ -8,6 +8,7 @@ import MapPage from "./pages/MapPage";
 import MyDiary from "./pages/MyDiary";
 import CreateDishEntry from "./pages/CreateDishEntry";
 import RestaurantDetails from "./pages/RestaurantDetails";
+import Friends from "./pages/Friends";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/diary" element={<MyDiary />} />
         <Route path="/diary/new" element={<CreateDishEntry />} />
         <Route path="/restaurant/:id" element={<RestaurantDetails />} />
+        <Route path="/friends" element={<Friends />} />
       </Route>
 
     </Routes>
