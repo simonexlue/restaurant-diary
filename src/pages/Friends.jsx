@@ -4,6 +4,8 @@ import { MdPeopleOutline } from "react-icons/md";
 import FriendsReviewCard from "../components/friends/FriendsReviewCard";
 import SentRequestCard from "../components/friends/SentRequestCard";
 import { useState } from "react";
+import FriendRequestCard from "../components/friends/FriendRequestCard";
+import AddFriendModal from "../components/friends/AddFriendModal";
 
 const friendsMock = [
     {
@@ -97,20 +99,21 @@ const sentRequestsMock = [
         displayName: "Daniel Lee",
         username: "danl",
         sentAt: "1 day ago",
-        status: "pending"
+        status: "Pending"
     },
     {
         id: 2,
         displayName: "Jessica Wong",
         username: "jessw",
         sentAt: "3 days ago",
-        status: "pending"
+        status: "Pending"
     }
 ];
 
 
 export default function Friends() {
     const [activeTab, setActiveTab] = useState("friends");
+    const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
@@ -125,12 +128,12 @@ export default function Friends() {
                 </div>
 
                 {/* Link is temporary to /diary/new until page is created */}
-                <Link
-                    to="/diary/new"
-                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]"
+                <button
+                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
+                    onClick={() => setShowAddFriendModal(true)}
                 >
                     Add Friend
-                </Link>
+                </button>
             </div>
 
             {/* Friend Requests */}
@@ -146,28 +149,16 @@ export default function Friends() {
                         </p>
                         <p className="text-[rgb(137,122,114)] text-sm">People who want to connect</p>
                     </div>
-
                 </div>
 
                 {friendRequestsMock.map((request) =>
-                    <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
-                        <div className="flex flex-row gap-3 items-center">
-                            {/* Profile pic placeholder */}
-                            <div className="bg-white rounded-4xl p-3">
-                                <MdPeopleOutline />
-                            </div>
-
-                            <div >
-                                <p className="text-stone-800">{request.displayName}</p>
-                                <p className="text-[rgb(137,122,114)] text-sm">{request.mutualCount} mutual friends | {request.requestedAt}</p>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-row gap-3" >
-                            <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+</button>
-                            <button className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)]">-</button>
-                        </div>
-                    </div>
+                    <FriendRequestCard
+                        id={request.id}
+                        displayName={request.displayName}
+                        username={request.username}
+                        mutualCount={request.mutualCount}
+                        requestedAt={request.requestedAt}
+                    />
                 )}
             </div>
 
@@ -265,6 +256,9 @@ export default function Friends() {
                 </div>
             )}
 
+            {showAddFriendModal && (
+                <AddFriendModal onClose={() => setShowAddFriendModal(false)} />
+            )}
         </div>
     )
 }
