@@ -3,7 +3,10 @@ import FriendsCard from "../components/friends/FriendsCard";
 import { MdPeopleOutline } from "react-icons/md";
 import FriendsReviewCard from "../components/friends/FriendsReviewCard";
 import SentRequestCard from "../components/friends/SentRequestCard";
+import { useState } from "react";
 export default function Friends() {
+    const [activeTab, setActiveTab] = useState("friends");
+
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
 
@@ -80,42 +83,71 @@ export default function Friends() {
 
             {/* Tabs */}
             <div className="flex flex-row gap-3 bg-[rgb(237,232,228)] rounded-lg px-3 py-2 justify-start items-center w-max">
-                <button className="bg-white py-2 px-3 rounded-lg text-stone-700">Friends</button>
-                <button className="text-stone-700  py-2 px-3 rounded-lg">Feed</button>
-                <button className="text-stone-700  py-2 px-3 rounded-lg">Sent</button>
+                <button
+                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "friends"
+                        ? "bg-white text-stone-700"
+                        : "text-stone-700"}`}
+                    onClick={() => setActiveTab("friends")}
+                >
+                    Friends
+                </button>
+                <button
+                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "feed"
+                        ? "bg-white text-stone-700"
+                        : "text-stone-700"}`}
+                    onClick={() => setActiveTab("feed")}
+                >
+                    Feed
+                </button>
+                <button
+                    className={`py-2 px-3 rounded-lg hover:cursor-pointer ${activeTab === "sent"
+                        ? "bg-white text-stone-700"
+                        : "text-stone-700"}`}
+                    onClick={() => setActiveTab("sent")}
+                >
+                    Sent
+                </button>
             </div>
 
             {/* Friends Tab Content */}
-            <div className="flex flex-col gap-4">
-                <input
-                    type="text"
-                    className="border border-stone-200 rounded-lg px-3 py-2 w-full focus:outline-[rgb(203,84,51)]"
-                    placeholder="Search friends..."
-                />
+            {activeTab === "friends" && (
+                <div className="flex flex-col gap-4">
+                    <input
+                        type="text"
+                        className="border border-stone-200 rounded-lg px-3 py-2 w-full focus:outline-[rgb(203,84,51)]"
+                        placeholder="Search friends..."
+                    />
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    <FriendsCard />
-                    <FriendsCard />
-                    <FriendsCard />
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        <FriendsCard />
+                        <FriendsCard />
+                        <FriendsCard />
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Feed Tab Content  */}
-            {/* <div>
-                <p className="text-[rgb(137,122,114)] text-sm mb-3">
-                    Recent entries from your friends
-                </p>
-                <div className="flex flex-col gap-4">
-                    <FriendsReviewCard />
-                    <FriendsReviewCard />
-                    <FriendsReviewCard />
+            {activeTab === "feed" && (
+                <div>
+                    <p className="text-[rgb(137,122,114)] text-sm mb-3">
+                        Recent entries from your friends
+                    </p>
+                    <div className="flex flex-col gap-4">
+                        <FriendsReviewCard />
+                        <FriendsReviewCard />
+                        <FriendsReviewCard />
+                    </div>
                 </div>
-            </div> */}
+            )}
+
 
             {/* Sent Tab Content */}
-            {/* <div>
-                <SentRequestCard />
-            </div> */}
+            {activeTab === "sent" && (
+                <div>
+                    <SentRequestCard />
+                </div>
+            )}
+
         </div>
     )
 }
