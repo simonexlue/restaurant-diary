@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { MdPeopleOutline } from "react-icons/md";
-import { searchUsers } from "../../services/friends";
+import { searchUsers, sendFriendRequest } from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
 export default function AddFriendModal({ onClose, currentUserId }) {
@@ -9,6 +9,9 @@ export default function AddFriendModal({ onClose, currentUserId }) {
     const [results, setResults] = useState([])
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+
+    const [sendingUserId, setSendingUserId] = useState(null)
+    const [successMessage, setSuccessMessage] = useState("")
 
     useEffect(() => {
         async function runSearch() {
@@ -35,6 +38,22 @@ export default function AddFriendModal({ onClose, currentUserId }) {
 
         runSearch()
     }, [debouncedSearch, currentUserId])
+
+    async function handleSendRequest(receiverId) {
+        try {
+            setSendingUserId(receiverId)
+            setErrorMessage("")
+            setSuccessMessage("")
+
+            await sendFriendRequest(receiverId, currentUserId)
+
+            setSuccessMessage("Friend request send.")
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to send friend request")
+        } finally {
+            setSendingUserId(null);
+        }
+    }
 
     return (
         <div
@@ -64,9 +83,16 @@ export default function AddFriendModal({ onClose, currentUserId }) {
                     type="text"
                     placeholder="Search by name or @username"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                        setSearch(e.target.value);
+                        setSuccessMessage("");
+                    }}
                     className="w-full mt-3 mb-4 border border-stone-300 rounded-lg px-3 py-1.5"
                 />
+
+                {successMessage && (
+                    <p className="text-green-700 text-sm mb-3">{successMessage}</p>
+                )}
 
                 {search.trim() === "" ? (
                     <div className="text-[rgb(137,122,114)] text-sm flex items-center justify-center py-10">
@@ -109,8 +135,10 @@ export default function AddFriendModal({ onClose, currentUserId }) {
                                 <button
                                     type="button"
                                     className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]"
+                                    disabled={sendingUserId === user.id}
+                                    onClick={() => handleSendRequest(user.id)}
                                 >
-                                    Send
+                                    {sendingUserId === user.id ? "Sending..." : "Send"}
                                 </button>
                             </div>
                         ))}
