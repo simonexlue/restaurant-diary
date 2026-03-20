@@ -8,6 +8,7 @@ import FriendRequestCard from "../components/friends/FriendRequestCard";
 import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
 import { IoBookOutline } from "react-icons/io5";
+import useUserProfile from "../hooks/useUserProfile";
 
 const friendsMock = [
     {
@@ -114,6 +115,7 @@ const sentRequestsMock = [
 
 
 export default function Friends() {
+    const { profile, loading, errorMessage } = useUserProfile();
     const [activeTab, setActiveTab] = useState("friends");
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
@@ -262,7 +264,7 @@ export default function Friends() {
             )}
 
             {showAddFriendModal && (
-                <AddFriendModal onClose={() => setShowAddFriendModal(false)} />
+                <AddFriendModal onClose={() => setShowAddFriendModal(false)} currentUserId={profile?.id} />
             )}
         </div>
     )

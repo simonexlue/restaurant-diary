@@ -1,26 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MdPeopleOutline } from "react-icons/md";
+import { searchUsers } from "../../services/friends";
+import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-const resultsMock = [
-    {
-        id: 1,
-        displayName: "Liam O'Brien",
-        username: "liamob"
-    },
-    {
-        id: 2,
-        displayName: "Daniel Lee",
-        username: "danl"
-    }
-];
-
-export default function AddFriendModal({ onClose }) {
+export default function AddFriendModal({ onClose, currentUserId }) {
     const [search, setSearch] = useState("");
+    const debouncedSearch = useDebouncedValue(search, 300);
+    const [results, setResults] = useState([])
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
-    const filteredResults = resultsMock.filter((user) =>
-        user.displayName.toLowerCase().includes(search.toLowerCase()) ||
-        user.username.toLowerCase().includes(search.toLowerCase())
-    );
+    useEffect(() => {
+        async function runSearch() {
+            if (!debouncedSearch.trim()) {
+                setResults([]);
+                setErrorMessage("");
+                setLoading(false)
+                return
+            }
+
+            try {
+                setLoading(true);
+                setErrorMessage("")
+
+                const users = await searchUsers(debouncedSearch, currentUserId);
+                setResults(users)
+            } catch (error) {
+                setErrorMessage(error.message || "Failed to search users.")
+                setResults([])
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        runSearch()
+    }, [debouncedSearch, currentUserId])
 
     return (
         <div
@@ -58,13 +72,21 @@ export default function AddFriendModal({ onClose }) {
                     <div className="text-[rgb(137,122,114)] text-sm flex items-center justify-center py-10">
                         Start typing to search for users
                     </div>
-                ) : filteredResults.length === 0 ? (
+                ) : loading ? (
+                    <div className="text-[rgb(137,122,114)] text-sm flex items-center justify-center py-10">
+                        Searching...
+                    </div>
+                ) : errorMessage ? (
+                    <div className="text-red-500 text-sm flex items-center justify-center py-10">
+                        {errorMessage}
+                    </div>
+                ) : results.length === 0 ? (
                     <div className="text-[rgb(137,122,114)] text-sm flex items-center justify-center py-10">
                         No user found
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3">
-                        {filteredResults.map((user) => (
+                        {results.map((user) => (
                             <div
                                 key={user.id}
                                 className="border border-stone-300 rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between"
@@ -76,7 +98,7 @@ export default function AddFriendModal({ onClose }) {
 
                                     <div>
                                         <p className="text-md text-stone-800">
-                                            {user.displayName}
+                                            {user.display_name}
                                         </p>
                                         <p className="text-[rgb(137,122,114)] text-xs">
                                             @{user.username}
