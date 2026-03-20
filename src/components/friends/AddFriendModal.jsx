@@ -3,7 +3,7 @@ import { MdPeopleOutline } from "react-icons/md";
 import { searchUsers, sendFriendRequest } from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-export default function AddFriendModal({ onClose, currentUserId }) {
+export default function AddFriendModal({ onClose, currentUserId, onRequestSent }) {
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 300);
     const [results, setResults] = useState([])
@@ -41,15 +41,19 @@ export default function AddFriendModal({ onClose, currentUserId }) {
 
     async function handleSendRequest(receiverId) {
         try {
-            setSendingUserId(receiverId)
-            setErrorMessage("")
-            setSuccessMessage("")
+            setSendingUserId(receiverId);
+            setErrorMessage("");
+            setSuccessMessage("");
 
-            await sendFriendRequest(receiverId, currentUserId)
+            await sendFriendRequest(receiverId, currentUserId);
 
-            setSuccessMessage("Friend request send.")
+            setSuccessMessage("Friend request sent.");
+
+            if (onRequestSent) {
+                await onRequestSent();
+            }
         } catch (error) {
-            setErrorMessage(error.message || "Failed to send friend request")
+            setErrorMessage(error.message || "Failed to send friend request");
         } finally {
             setSendingUserId(null);
         }

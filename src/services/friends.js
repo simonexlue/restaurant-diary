@@ -123,3 +123,189 @@ export async function getIncomingFriendRequests(currentUserId) {
 
     return data ?? [];
 }
+
+export async function acceptFriendRequest(requestId, currentUserId) {
+    if (!requestId) {
+        throw new Error("Request id is required.");
+    }
+
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const { data: request, error: requestError } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, receiver_id, status")
+        .eq("id", requestId)
+        .maybeSingle();
+
+    if (requestError) {
+        throw requestError;
+    }
+
+    if (!request) {
+        throw new Error("Friend request not found.");
+    }
+
+    if (request.receiver_id !== currentUserId) {
+        throw new Error("You can only accept requests sent to you.");
+    }
+
+    if (request.status !== "pending") {
+        throw new Error("This request is no longer pending.");
+    }
+
+    const [userOneId, userTwoId] = sortFriendsIds(request.sender_id, request.receiver_id);
+
+    const { data: existingFriendship, error: friendshipCheckError } = await supabase
+        .from("friendships")
+        .select("id")
+        .eq("user_one_id", userOneId)
+        .eq("user_two_id", userTwoId)
+        .maybeSingle();
+
+    if (friendshipCheckError) {
+        throw friendshipCheckError;
+    }
+
+    if (!existingFriendship) {
+        const { error: friendshipInsertError } = await supabase
+            .from("friendships")
+            .insert({
+                user_one_id: userOneId,
+                user_two_id: userTwoId,
+            });
+
+        if (friendshipInsertError) {
+            throw friendshipInsertError;
+        }
+    }
+
+    const { error: deleteError } = await supabase
+        .from("friend_requests")
+        .delete()
+        .eq("id", requestId);
+
+    if (deleteError) {
+        throw deleteError;
+    }
+
+    return true;
+}
+
+export async function declineFriendRequest(requestId, currentUserId) {
+    if (!requestId) {
+        throw new Error("Request id is required.");
+    }
+
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const { data: request, error: requestError } = await supabase
+        .from("friend_requests")
+        .select("id, receiver_id, status")
+        .eq("id", requestId)
+        .maybeSingle();
+
+    if (requestError) {
+        throw requestError;
+    }
+
+    if (!request) {
+        throw new Error("Friend request not found.");
+    }
+
+    if (request.receiver_id !== currentUserId) {
+        throw new Error("You can only decline requests sent to you.");
+    }
+
+    if (request.status !== "pending") {
+        throw new Error("This request is no longer pending.");
+    }
+
+    const { error: deleteError } = await supabase
+        .from("friend_requests")
+        .delete()
+        .eq("id", requestId);
+
+    if (deleteError) {
+        throw deleteError;
+    }
+
+    return true;
+}
+
+export async function getSentFriendRequests(currentUserId) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const { data, error } = await supabase
+        .from("friend_requests")
+        .select(`
+            id,
+            sender_id,
+            receiver_id,
+            status,
+            created_at,
+            receiver_profile:profiles!friend_requests_receiver_id_fkey (
+                id,
+                username,
+                display_name,
+                avatar_url
+            )
+        `)
+        .eq("sender_id", currentUserId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        throw error;
+    }
+
+    return data ?? [];
+}
+
+export async function cancelFriendRequest(requestId, currentUserId) {
+    if (!requestId) {
+        throw new Error("Request id is required.");
+    }
+
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const { data: request, error: requestError } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, status")
+        .eq("id", requestId)
+        .maybeSingle();
+
+    if (requestError) {
+        throw requestError;
+    }
+
+    if (!request) {
+        throw new Error("Friend request not found.");
+    }
+
+    if (request.sender_id !== currentUserId) {
+        throw new Error("You can only cancel your own requests.");
+    }
+
+    if (request.status !== "pending") {
+        throw new Error("Only pending requests can be cancelled.");
+    }
+
+    const { error } = await supabase
+        .from("friend_requests")
+        .delete()
+        .eq("id", requestId);
+
+    if (error) {
+        throw error;
+    }
+
+    return true;
+}

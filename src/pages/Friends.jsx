@@ -8,7 +8,7 @@ import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
 import { IoBookOutline } from "react-icons/io5";
 import useUserProfile from "../hooks/useUserProfile";
-import { getIncomingFriendRequests } from "../services/friends";
+import { getIncomingFriendRequests, acceptFriendRequest, declineFriendRequest, getSentFriendRequests, cancelFriendRequest } from "../services/friends";
 
 const friendsMock = [
     {
@@ -79,24 +79,6 @@ const feedMock = [
     }
 ];
 
-const sentRequestsMock = [
-    {
-        id: 1,
-        displayName: "Daniel Lee",
-        username: "danl",
-        sentAt: "1 day ago",
-        status: "Pending"
-    },
-    {
-        id: 2,
-        displayName: "Jessica Wong",
-        username: "jessw",
-        sentAt: "3 days ago",
-        status: "Pending"
-    }
-];
-
-
 export default function Friends() {
     const { profile, loading, errorMessage } = useUserProfile();
     const [activeTab, setActiveTab] = useState("friends");
@@ -105,6 +87,12 @@ export default function Friends() {
     const [incomingRequests, setIncomingRequests] = useState([])
     const [requestLoading, setRequestLoading] = useState(false)
     const [requestsError, setRequestsError] = useState("")
+    const [actionLoadingId, setActionLoadingId] = useState(null)
+
+    const [sentRequests, setSentRequests] = useState([]);
+    const [sentRequestsLoading, setSentRequestsLoading] = useState(false);
+    const [sentRequestsError, setSentRequestsError] = useState("");
+    const [cancelLoadingId, setCancelLoadingId] = useState(null);
 
     useEffect(() => {
         async function loadIncomingRequests() {
@@ -128,6 +116,81 @@ export default function Friends() {
 
         loadIncomingRequests();
     }, [profile?.id])
+
+    useEffect(() => {
+        async function loadSentRequests() {
+            if (!profile?.id) {
+                return;
+            }
+        }
+
+        loadSentRequests();
+    }, [profile?.id]);
+
+    async function loadSentRequests() {
+        if (!profile?.id) {
+            return;
+        }
+
+        try {
+            setSentRequestsLoading(true);
+            setSentRequestsError("");
+
+            const data = await getSentFriendRequests(profile.id);
+            setSentRequests(data);
+        } catch (error) {
+            setSentRequestsError(error.message || "Failed to load sent requests.");
+            setSentRequests([]);
+        } finally {
+            setSentRequestsLoading(false);
+        }
+    }
+
+    async function handleAcceptRequest(requestId) {
+        try {
+            setActionLoadingId(requestId)
+            setRequestsError("")
+
+            await acceptFriendRequest(requestId, profile.id)
+            setIncomingRequests((prev) => prev.filter((request) => request.id !== requestId))
+        } catch (error) {
+            setRequestsError(error.message || "Failed to accept request")
+        } finally {
+            setActionLoadingId(null)
+        }
+    }
+
+    async function handleDeclineRequest(requestId) {
+        try {
+            setActionLoadingId(requestId)
+            setRequestsError("")
+
+            await declineFriendRequest(requestId, profile.id)
+            setIncomingRequests((prev) => prev.filter((request) => request.id !== requestId))
+        } catch (error) {
+            setRequestsError(error.message || "Failed to decline request")
+        } finally {
+            setActionLoadingId(null)
+        }
+    }
+
+    async function handleCancelRequest(requestId) {
+        try {
+            setCancelLoadingId(requestId);
+            setSentRequestsError("");
+
+            await cancelFriendRequest(requestId, profile.id);
+
+            // remove from UI immediately
+            setSentRequests((prev) =>
+                prev.filter((request) => request.id !== requestId)
+            );
+        } catch (error) {
+            setSentRequestsError(error.message || "Failed to cancel request.");
+        } finally {
+            setCancelLoadingId(null);
+        }
+    }
 
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
@@ -181,6 +244,9 @@ export default function Friends() {
                                 username={request.sender_profile?.username}
                                 requestedAt={request.created_at}
                                 mutualCount={0}
+                                onAccept={() => handleAcceptRequest(request.id)}
+                                onDecline={() => handleDeclineRequest(request.id)}
+                                actionLoading={actionLoadingId === request.id}
                             />
                         ))
                     )}
@@ -272,20 +338,31 @@ export default function Friends() {
             {/* Sent Tab Content */}
             {activeTab === "sent" && (
                 <div className="flex flex-col gap-2">
-                    {sentRequestsMock.map((request) => (
-                        <SentRequestCard
-                            id={request.id}
-                            displayName={request.displayName}
-                            username={request.username}
-                            sentAt={request.sentAt}
-                            status={request.status}
-                        />
-                    ))}
+                    {sentRequestsLoading ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">Loading sent requests...</p>
+                    ) : sentRequestsError ? (
+                        <p className="text-sm text-red-500">{sentRequestsError}</p>
+                    ) : sentRequests.length === 0 ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">No sent requests</p>
+                    ) : (
+                        sentRequests.map((request) => (
+                            <SentRequestCard
+                                key={request.id}
+                                id={request.id}
+                                displayName={request.receiver_profile?.display_name}
+                                username={request.receiver_profile?.username}
+                                sentAt={request.created_at}
+                                status={request.status}
+                                onCancel={() => handleCancelRequest(request.id)}
+                                actionLoading={cancelLoadingId === request.id}
+                            />
+                        ))
+                    )}
                 </div>
             )}
 
             {showAddFriendModal && (
-                <AddFriendModal onClose={() => setShowAddFriendModal(false)} currentUserId={profile?.id} />
+                <AddFriendModal onClose={() => setShowAddFriendModal(false)} currentUserId={profile?.id} onRequestSent={loadSentRequests} />
             )}
         </div>
     )

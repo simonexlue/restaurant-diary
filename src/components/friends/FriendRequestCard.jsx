@@ -6,6 +6,9 @@ export default function FriendRequestCard({
     username,
     mutualCount,
     requestedAt,
+    onAccept,
+    onDecline,
+    actionLoading,
 }) {
 
     function formatTimeAgo(dateString) {
@@ -49,8 +52,22 @@ export default function FriendRequestCard({
             </div>
 
             <div className="flex flex-row gap-3" >
-                <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+</button>
-                <button className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)]">-</button>
+                <button
+                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={onAccept}
+                    disabled={actionLoading}
+                >
+                    +
+                </button>
+                <button
+                    className="px-4 py-2 text-sm text-stone-800 border border-stone-300 rounded-lg bg-[rgb(248,245,242)] hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={onDecline}
+                    disabled={actionLoading}
+                >
+                    -
+                </button>
             </div>
         </div>
     )
