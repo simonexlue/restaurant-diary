@@ -92,3 +92,34 @@ export async function sendFriendRequest(receiverId, currentUserId) {
 
         return data;
 }
+
+export async function getIncomingFriendRequests(currentUserId) {
+    if(!currentUserId) {
+        throw new Error("Current user id is required")
+    }
+
+    const {data, error} = await supabase
+        .from("friend_requests")
+        .select(`
+            id,
+            sender_id,
+            receiver_id,
+            status,
+            created_at,
+            sender_profile:profiles!friend_requests_sender_id_fkey (
+                id,
+                username,
+                display_name,
+                avatar_url
+            )
+        `)
+        .eq("receiver_id", currentUserId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        throw error;
+    }
+
+    return data ?? [];
+}

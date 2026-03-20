@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import TopNavigation from "../components/layout/TopNavigation";
 import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
+import { useNavigate } from "react-router-dom";
 
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile()
@@ -11,6 +12,20 @@ export default function Home() {
     }
     if (errorMessage) {
         return <p>{errorMessage}</p>
+    }
+
+    async function handleLogOut() {
+        try {
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+                throw error;
+            }
+
+            navigate("/login");
+        } catch (error) {
+            console.error("Logout failed:", error.message);
+        }
     }
 
     return (
@@ -26,6 +41,13 @@ export default function Home() {
                     <button className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg lg:hidden">Search</button>
                 </div>
             </div>
+
+            <button
+                onClick={handleLogOut}
+                className="px-4 py-2 text-sm text-white rounded-lg bg-red-500"
+            >
+                Logout
+            </button>
         </div>
     )
 }

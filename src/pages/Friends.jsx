@@ -1,14 +1,14 @@
-import { Link } from "react-router-dom"
 import FriendsCard from "../components/friends/FriendsCard";
 import { MdPeopleOutline } from "react-icons/md";
 import FriendsReviewCard from "../components/friends/FriendsReviewCard";
 import SentRequestCard from "../components/friends/SentRequestCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FriendRequestCard from "../components/friends/FriendRequestCard";
 import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
 import { IoBookOutline } from "react-icons/io5";
 import useUserProfile from "../hooks/useUserProfile";
+import { getIncomingFriendRequests } from "../services/friends";
 
 const friendsMock = [
     {
@@ -40,23 +40,6 @@ const friendsMock = [
         recentRestaurant: "Nobu Downtown",
         recentTime: "2d ago",
         avatarUrl: null
-    }
-];
-
-const friendRequestsMock = [
-    {
-        id: 1,
-        displayName: "Sydney Park",
-        username: "oliviap",
-        mutualCount: 3,
-        requestedAt: "3 hours ago"
-    },
-    {
-        id: 2,
-        displayName: "Tom Walker",
-        username: "tomw",
-        mutualCount: 2,
-        requestedAt: "5 days ago"
     }
 ];
 
@@ -119,6 +102,33 @@ export default function Friends() {
     const [activeTab, setActiveTab] = useState("friends");
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
+    const [incomingRequests, setIncomingRequests] = useState([])
+    const [requestLoading, setRequestLoading] = useState(false)
+    const [requestsError, setRequestsError] = useState("")
+
+    useEffect(() => {
+        async function loadIncomingRequests() {
+            if (!profile?.id) {
+                return
+            }
+
+            try {
+                setRequestLoading(true)
+                setRequestsError("")
+
+                const data = await getIncomingFriendRequests(profile.id);
+                setIncomingRequests(data)
+            } catch (error) {
+                setRequestsError(error.message || "Failed to load friend requests")
+                setIncomingRequests([]);
+            } finally {
+                setRequestLoading(false)
+            }
+        }
+
+        loadIncomingRequests();
+    }, [profile?.id])
+
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
 
@@ -127,7 +137,7 @@ export default function Friends() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl text-stone-700">Friends </h1>
                     <p className="text-[rgb(137,122,114)] text-sm">
-                        6 friends | 2 pending requests
+                        6 friends | {incomingRequests.length} pending requests
                     </p>
                 </div>
 
@@ -141,30 +151,41 @@ export default function Friends() {
             </div>
 
             {/* Friend Requests */}
-            <div className="flex flex-col gap-3 border border-[rgb(239,206,191)] rounded-lg mt-3 px-4 py-3 bg-[rgb(253,246,244)]">
-                <div className="flex flex-row items-center gap-3">
-                    <div className="bg-white rounded-4xl p-3">
-                        <MdPeopleOutline size={22} className="text-[rgb(203,84,51)]" />
+            {(requestLoading || requestsError || incomingRequests.length > 0) && (
+                <div className="flex flex-col gap-3 border border-[rgb(239,206,191)] rounded-lg mt-3 px-4 py-3 bg-[rgb(253,246,244)]">
+                    <div className="flex flex-row items-center gap-3">
+                        <div className="bg-white rounded-4xl p-3">
+                            <MdPeopleOutline size={22} className="text-[rgb(203,84,51)]" />
+                        </div>
+
+                        <div>
+                            <p className="text-stone-800">
+                                Friend Requests ({incomingRequests.length})
+                            </p>
+                            <p className="text-[rgb(137,122,114)] text-sm">
+                                People who want to connect
+                            </p>
+                        </div>
                     </div>
 
-                    <div >
-                        <p className="text-stone-800">
-                            Friend Requests ({friendRequestsMock.length})
-                        </p>
-                        <p className="text-[rgb(137,122,114)] text-sm">People who want to connect</p>
-                    </div>
+                    {requestLoading ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">Loading requests...</p>
+                    ) : requestsError ? (
+                        <p className="text-sm text-red-500">{requestsError}</p>
+                    ) : (
+                        incomingRequests.map((request) => (
+                            <FriendRequestCard
+                                key={request.id}
+                                id={request.id}
+                                displayName={request.sender_profile?.display_name}
+                                username={request.sender_profile?.username}
+                                requestedAt={request.created_at}
+                                mutualCount={0}
+                            />
+                        ))
+                    )}
                 </div>
-
-                {friendRequestsMock.map((request) =>
-                    <FriendRequestCard
-                        id={request.id}
-                        displayName={request.displayName}
-                        username={request.username}
-                        mutualCount={request.mutualCount}
-                        requestedAt={request.requestedAt}
-                    />
-                )}
-            </div>
+            )}
 
             {/* Tabs */}
             <div className="flex flex-row gap-3 bg-[rgb(237,232,228)] rounded-lg px-3 py-2 justify-start items-center w-max">
