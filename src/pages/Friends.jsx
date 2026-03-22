@@ -41,6 +41,8 @@ export default function Friends() {
     const [feedLoading, setFeedLoading] = useState(false);
     const [feedError, setFeedError] = useState("");
 
+    const [friendsSearch, setFriendsSearch] = useState("")
+
     useEffect(() => {
         async function loadFriends() {
             if (!profile?.id) return;
@@ -183,6 +185,24 @@ export default function Friends() {
         loadFeed();
     }, [profile?.id]);
 
+    const filteredFriends = friends.filter((friend) => {
+        const searchValue = friendsSearch.trim().toLowerCase();
+
+        if (!searchValue) {
+            return true;
+        }
+
+        const displayName = friend.display_name?.toLowerCase() || "";
+        const username = friend.username?.toLowerCase() || "";
+        const recentRestaurant = friend.recentRestaurant?.toLowerCase() || "";
+
+        return (
+            displayName.includes(searchValue) ||
+            username.includes(searchValue) ||
+            recentRestaurant.includes(searchValue)
+        );
+    });
+
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
 
@@ -281,7 +301,9 @@ export default function Friends() {
                     <input
                         type="text"
                         className="border border-stone-200 rounded-lg px-3 py-2 w-full focus:outline-[rgb(203,84,51)]"
-                        placeholder="Search friends..."
+                        placeholder="Search by name, username, or restaurant..."
+                        value={friendsSearch}
+                        onChange={(e) => setFriendsSearch(e.target.value)}
                     />
 
                     {friendsLoading ? (
@@ -292,9 +314,13 @@ export default function Friends() {
                         <p className="text-sm text-[rgb(137,122,114)]">
                             No friends yet. Add some to get started.
                         </p>
+                    ) : filteredFriends.length === 0 ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">
+                            No friends match your search.
+                        </p>
                     ) : (
                         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 ">
-                            {friends.map((friend) => (
+                            {filteredFriends.map((friend) => (
                                 <FriendsCard
                                     key={friend.id}
                                     id={friend.id}

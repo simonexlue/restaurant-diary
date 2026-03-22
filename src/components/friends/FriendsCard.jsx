@@ -33,12 +33,14 @@ export default function FriendsCard({
                 </div>
 
                 {/* Recent Activity */}
-                <div className="bg-[rgb(244,232,215)] rounded-lg px-2 py-1 flex flex-row gap-1 items-center">
-                    <IoLocationOutline className="text-xs text-[rgb(203,84,51)]" />
-                    <p className="text-xs text-stone-700">{recentRestaurant}</p>
-                    {recentTime !== null && recentTime !== "" && <p className="text-xs text-stone-500">- {formatDate(recentTime)}</p>}
+                {recentRestaurant !== null && recentRestaurant !== "" &&
+                    <div className="bg-[rgb(244,232,215)] rounded-lg px-2 py-1 flex flex-row gap-1 items-center">
+                        <IoLocationOutline className="text-xs text-[rgb(203,84,51)]" />
+                        <p className="text-xs text-stone-700">{recentRestaurant}</p>
+                        {recentTime !== null && recentTime !== "" && <p className="text-xs text-stone-500">- {formatDate(recentTime)}</p>}
 
-                </div>
+                    </div>}
+
             </div>
         </div>
     )
