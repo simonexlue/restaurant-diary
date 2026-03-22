@@ -309,3 +309,116 @@ export async function cancelFriendRequest(requestId, currentUserId) {
 
     return true;
 }
+
+export async function getFriendsList(currentUserId) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const { data: friendshipRows, error: friendshipsError } = await supabase
+        .from("friendships")
+        .select(`
+            id,
+            user_one_id,
+            user_two_id,
+            user_one:profiles!friendships_user_one_id_fkey (
+                id,
+                username,
+                display_name,
+                avatar_url
+            ),
+            user_two:profiles!friendships_user_two_id_fkey (
+                id,
+                username,
+                display_name,
+                avatar_url
+            )
+        `)
+        .or(`user_one_id.eq.${currentUserId},user_two_id.eq.${currentUserId}`);
+
+    if (friendshipsError) {
+        throw friendshipsError;
+    }
+
+    const baseFriends = (friendshipRows ?? []).map((row) => {
+        const friendProfile =
+            row.user_one_id === currentUserId ? row.user_two : row.user_one;
+
+        return {
+            id: friendProfile?.id,
+            username: friendProfile?.username,
+            display_name: friendProfile?.display_name,
+            avatar_url: friendProfile?.avatar_url,
+        };
+    });
+
+    if (baseFriends.length === 0) {
+        return [];
+    }
+
+    const friendIds = baseFriends.map((friend) => friend.id).filter(Boolean);
+
+const { data: entryRows, error: entriesError } = await supabase
+    .from("dish_entries")
+    .select(`
+        id,
+        user_id,
+        date_tried,
+        restaurant:restaurants (
+            id,
+            name
+        )
+    `)
+    .in("user_id", friendIds)
+    .order("date_tried", { ascending: false })
+    .order("created_at", { ascending: false });
+
+    if (entriesError) {
+        throw entriesError;
+    }
+
+    const entryStatsByUserId = {};
+
+ for (const friendId of friendIds) {
+    entryStatsByUserId[friendId] = {
+        entryCount: 0,
+        recentRestaurant: null,
+        recentTime: null,
+    };
+}
+
+for (const row of entryRows ?? []) {
+    const userId = row.user_id;
+
+    if (!entryStatsByUserId[userId]) {
+        entryStatsByUserId[userId] = {
+            entryCount: 0,
+            recentRestaurant: null,
+            recentTime: null,
+        };
+    }
+
+    entryStatsByUserId[userId].entryCount += 1;
+
+    if (!entryStatsByUserId[userId].recentTime) {
+        entryStatsByUserId[userId].recentRestaurant = row.restaurant?.name ?? null;
+        entryStatsByUserId[userId].recentTime = row.date_tried ?? null;
+    }
+}
+
+    return baseFriends.map((friend) => {
+        const stats = entryStatsByUserId[friend.id] ?? {
+            entryCount: 0,
+            recentRestaurant: null,
+            recentTime: null,
+        };
+
+        return {
+            ...friend,
+            entryCount: stats.entryCount,
+            mutualCount: 0,
+            recentRestaurant: stats.recentRestaurant,
+            recentTime: stats.recentTime,
+        };
+    });
+}

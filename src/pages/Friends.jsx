@@ -8,40 +8,7 @@ import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
 import { IoBookOutline } from "react-icons/io5";
 import useUserProfile from "../hooks/useUserProfile";
-import { getIncomingFriendRequests, acceptFriendRequest, declineFriendRequest, getSentFriendRequests, cancelFriendRequest } from "../services/friends";
-
-const friendsMock = [
-    {
-        id: 1,
-        displayName: "Sarah Mitchell",
-        username: "sarahm",
-        entryCount: 67,
-        mutualCount: 3,
-        recentRestaurant: "Din Tai Fung",
-        recentTime: "5h ago",
-        avatarUrl: null
-    },
-    {
-        id: 2,
-        displayName: "Alex Chen",
-        username: "alexc",
-        entryCount: 42,
-        mutualCount: 5,
-        recentRestaurant: "Kinton Ramen",
-        recentTime: "1d ago",
-        avatarUrl: null
-    },
-    {
-        id: 3,
-        displayName: "Emily Carter",
-        username: "emilyc",
-        entryCount: 89,
-        mutualCount: 2,
-        recentRestaurant: "Nobu Downtown",
-        recentTime: "2d ago",
-        avatarUrl: null
-    }
-];
+import { getIncomingFriendRequests, acceptFriendRequest, declineFriendRequest, getSentFriendRequests, cancelFriendRequest, getFriendsList } from "../services/friends";
 
 const feedMock = [
     {
@@ -93,6 +60,31 @@ export default function Friends() {
     const [sentRequestsLoading, setSentRequestsLoading] = useState(false);
     const [sentRequestsError, setSentRequestsError] = useState("");
     const [cancelLoadingId, setCancelLoadingId] = useState(null);
+
+    const [friends, setFriends] = useState([])
+    const [friendsLoading, setFriendsLoading] = useState(false)
+    const [friendsError, setFriendsError] = useState("")
+
+    useEffect(() => {
+        async function loadFriends() {
+            if (!profile?.id) return;
+
+            try {
+                setFriendsLoading(true)
+                setFriendsError("")
+
+                const data = await getFriendsList(profile.id)
+                setFriends(data);
+                console.log(data)
+            } catch (error) {
+                setFriendsError(error.message || "Failed to load friends")
+                setFriends([])
+            } finally {
+                setFriendsLoading(false)
+            }
+        }
+        loadFriends();
+    }, [profile?.id])
 
     useEffect(() => {
         async function loadIncomingRequests() {
@@ -200,7 +192,7 @@ export default function Friends() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl text-stone-700">Friends </h1>
                     <p className="text-[rgb(137,122,114)] text-sm">
-                        6 friends | {incomingRequests.length} pending requests
+                        {friends.length} {friends.length === 1 ? "friend" : "friends"} | {incomingRequests.length} {incomingRequests.length === 1 ? "pending request" : "pending requests"}
                     </p>
                 </div>
 
@@ -293,20 +285,31 @@ export default function Friends() {
                         placeholder="Search friends..."
                     />
 
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                        {friendsMock.map((friend) => (
-                            <FriendsCard
-                                id={friend.id}
-                                displayName={friend.displayName}
-                                username={friend.username}
-                                entryCount={friend.entryCount}
-                                mutualCount={friend.mutualCount}
-                                recentRestaurant={friend.recentRestaurant}
-                                recentTime={friend.recentTime}
-                                avatarUrl={friend.avatarUrl}
-                            />
-                        ))}
-                    </div>
+                    {friendsLoading ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">Loading friends...</p>
+                    ) : friendsError ? (
+                        <p className="text-sm text-red-500">{friendsError}</p>
+                    ) : friends.length === 0 ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">
+                            No friends yet. Add some to get started.
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 ">
+                            {friends.map((friend) => (
+                                <FriendsCard
+                                    key={friend.id}
+                                    id={friend.id}
+                                    displayName={friend.display_name}
+                                    username={friend.username}
+                                    entryCount={friend.entryCount}
+                                    mutualCount={friend.mutualCount}
+                                    recentRestaurant={friend.recentRestaurant}
+                                    recentTime={friend.recentTime}
+                                    avatarUrl={friend.avatar_url}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -1,5 +1,6 @@
 import { MdPeopleOutline } from "react-icons/md"
 import { IoLocationOutline } from "react-icons/io5"
+import { formatDate } from "../../utils/date"
 
 export default function FriendsCard({
     id,
@@ -28,14 +29,15 @@ export default function FriendsCard({
                 {/* Metadata */}
                 <div className="flex flex-row gap-3">
                     <p className="text-xs text-[rgb(137,122,114)]">{entryCount} entries</p>
-                    <p className="text-xs text-[rgb(137,122,114)]">{mutualCount} mutuals</p>
+                    {/* <p className="text-xs text-[rgb(137,122,114)]">{mutualCount} mutuals</p>  Not in this MVP */}
                 </div>
 
                 {/* Recent Activity */}
                 <div className="bg-[rgb(244,232,215)] rounded-lg px-2 py-1 flex flex-row gap-1 items-center">
                     <IoLocationOutline className="text-xs text-[rgb(203,84,51)]" />
                     <p className="text-xs text-stone-700">{recentRestaurant}</p>
-                    <p className="text-xs text-stone-500">- {recentTime}</p>
+                    {recentTime !== null && recentTime !== "" && <p className="text-xs text-stone-500">- {formatDate(recentTime)}</p>}
+
                 </div>
             </div>
         </div>
