@@ -8,43 +8,15 @@ import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
 import { IoBookOutline } from "react-icons/io5";
 import useUserProfile from "../hooks/useUserProfile";
-import { getIncomingFriendRequests, acceptFriendRequest, declineFriendRequest, getSentFriendRequests, cancelFriendRequest, getFriendsList } from "../services/friends";
-
-const feedMock = [
-    {
-        id: 1,
-        displayName: "Sarah Mitchell",
-        userAvatar: null,
-        date: "2025-03-15",
-        restaurantName: "Nobu Downtown",
-        location: "New York, USA",
-        rating: 4.5,
-        dishCount: 4,
-        photoUrl: null
-    },
-    {
-        id: 2,
-        displayName: "Alex Chen",
-        userAvatar: null,
-        date: "2025-03-14",
-        restaurantName: "Kinton Ramen",
-        location: "Toronto, Canada",
-        rating: 4,
-        dishCount: 2,
-        photoUrl: null
-    },
-    {
-        id: 3,
-        displayName: "Emily Carter",
-        userAvatar: null,
-        date: "2025-03-12",
-        restaurantName: "Din Tai Fung",
-        location: "Vancouver, Canada",
-        rating: 5,
-        dishCount: 3,
-        photoUrl: null
-    }
-];
+import {
+    getIncomingFriendRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
+    getSentFriendRequests,
+    cancelFriendRequest,
+    getFriendsList,
+    getFriendsFeed,
+} from "../services/friends";
 
 export default function Friends() {
     const { profile, loading, errorMessage } = useUserProfile();
@@ -64,6 +36,10 @@ export default function Friends() {
     const [friends, setFriends] = useState([])
     const [friendsLoading, setFriendsLoading] = useState(false)
     const [friendsError, setFriendsError] = useState("")
+
+    const [feedItems, setFeedItems] = useState([]);
+    const [feedLoading, setFeedLoading] = useState(false);
+    const [feedError, setFeedError] = useState("");
 
     useEffect(() => {
         async function loadFriends() {
@@ -183,6 +159,29 @@ export default function Friends() {
             setCancelLoadingId(null);
         }
     }
+
+    useEffect(() => {
+        async function loadFeed() {
+            if (!profile?.id) {
+                return;
+            }
+
+            try {
+                setFeedLoading(true);
+                setFeedError("");
+
+                const data = await getFriendsFeed(profile.id);
+                setFeedItems(data);
+            } catch (error) {
+                setFeedError(error.message || "Failed to load feed");
+                setFeedItems([]);
+            } finally {
+                setFeedLoading(false);
+            }
+        }
+
+        loadFeed();
+    }, [profile?.id]);
 
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
@@ -317,23 +316,36 @@ export default function Friends() {
             {activeTab === "feed" && (
                 <div>
                     <p className="text-[rgb(137,122,114)] text-sm mb-3">
-                        Recent entries from your friends
+                        Recent restaurant activity from your friends
                     </p>
-                    <div className="flex flex-col gap-4">
-                        {feedMock.map((feed) => (
-                            <FriendsReviewCard
-                                id={feed.id}
-                                displayName={feed.displayName}
-                                userAvatar={feed.userAvatar}
-                                date={feed.date}
-                                restaurantName={feed.restaurantName}
-                                location={feed.location}
-                                rating={feed.rating}
-                                dishCount={feed.dishCount}
-                                photoUrl={feed.photoUrl}
-                            />
-                        ))}
-                    </div>
+
+                    {feedLoading ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">Loading feed...</p>
+                    ) : feedError ? (
+                        <p className="text-sm text-red-500">{feedError}</p>
+                    ) : feedItems.length === 0 ? (
+                        <p className="text-sm text-[rgb(137,122,114)]">
+                            No friend activity yet.
+                        </p>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {feedItems.map((feed) => (
+                                <FriendsReviewCard
+                                    key={feed.id}
+                                    id={feed.id}
+                                    displayName={feed.displayName}
+                                    userName={feed.userName}
+                                    userAvatar={feed.userAvatar}
+                                    date={feed.date}
+                                    restaurantName={feed.restaurantName}
+                                    location={feed.location}
+                                    rating={feed.rating}
+                                    dishCount={feed.dishCount}
+                                    photoUrl={feed.photoUrl}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

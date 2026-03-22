@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { getDishPhotoUrl } from "./diary";
 
 function sortFriendsIds(userA, userB) {
     return userA < userB ? [userA, userB] : [userB, userA];
@@ -421,4 +422,137 @@ for (const row of entryRows ?? []) {
             recentTime: stats.recentTime,
         };
     });
+}
+
+export async function getFriendsFeed(currentUserId) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    const friends = await getFriendsList(currentUserId);
+
+    if (!friends.length) {
+        return [];
+    }
+
+    const friendIds = friends.map((friend) => friend.id).filter(Boolean);
+
+    const friendMap = {};
+    for (const friend of friends) {
+        friendMap[friend.id] = friend;
+    }
+
+    const { data: entryRows, error } = await supabase
+        .from("dish_entries")
+        .select(`
+            id,
+            user_id,
+            dish_name,
+            item_rating,
+            date_tried,
+            photo_path,
+            created_at,
+            restaurant:restaurants (
+                id,
+                name,
+                address
+            )
+        `)
+        .in("user_id", friendIds)
+        .not("date_tried", "is", null)
+        .order("date_tried", { ascending: false })
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        throw error;
+    }
+
+    const entriesByUserId = {};
+
+    for (const friendId of friendIds) {
+        entriesByUserId[friendId] = [];
+    }
+
+    for (const row of entryRows ?? []) {
+        if (!entriesByUserId[row.user_id]) {
+            entriesByUserId[row.user_id] = [];
+        }
+
+        entriesByUserId[row.user_id].push(row);
+    }
+
+    const rawFeedCards = [];
+
+    for (const friendId of friendIds) {
+        const friendEntries = entriesByUserId[friendId] ?? [];
+
+        if (friendEntries.length === 0) {
+            continue;
+        }
+
+        const mostRecentEntry = friendEntries[0];
+        const recentRestaurantId = mostRecentEntry.restaurant?.id;
+
+        if (!recentRestaurantId) {
+            continue;
+        }
+
+        const restaurantEntries = friendEntries.filter(
+            (entry) => entry.restaurant?.id === recentRestaurantId
+        );
+
+        const ratings = restaurantEntries
+            .map((entry) => Number(entry.item_rating))
+            .filter((rating) => !Number.isNaN(rating));
+
+        const averageRating =
+            ratings.length > 0
+                ? Number(
+                    (
+                        ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+                    ).toFixed(1)
+                )
+                : null;
+
+        const mostRecentPhotoEntry =
+            restaurantEntries.find((entry) => entry.photo_path) ?? null;
+
+        rawFeedCards.push({
+            id: `${friendId}-${recentRestaurantId}`,
+            friendId,
+            displayName: friendMap[friendId]?.display_name ?? "",
+            userName: friendMap[friendId]?.username ?? "",
+            userAvatar: friendMap[friendId]?.avatar_url ?? null,
+            date: mostRecentEntry.date_tried,
+            restaurantId: recentRestaurantId,
+            restaurantName: mostRecentEntry.restaurant?.name ?? "",
+            location: mostRecentEntry.restaurant?.address ?? "",
+            rating: averageRating,
+            dishCount: restaurantEntries.length,
+            photoPath: mostRecentPhotoEntry?.photo_path ?? null,
+        });
+    }
+
+    const sortedFeedCards = rawFeedCards
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10);
+
+    const feedCardsWithImageUrls = await Promise.all(
+        sortedFeedCards.map(async (card) => {
+            if (!card.photoPath) {
+                return {
+                    ...card,
+                    photoUrl: null,
+                };
+            }
+
+            const photoUrl = await getDishPhotoUrl(card.photoPath);
+
+            return {
+                ...card,
+                photoUrl,
+            };
+        })
+    );
+    return feedCardsWithImageUrls;
 }
