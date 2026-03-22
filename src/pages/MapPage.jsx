@@ -1,20 +1,121 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { loadGoogleMaps } from "../lib/loadGoogleMaps";
 import {
     fetchSavedRestaurantsForUser,
     createManualRestaurantForUser,
     saveGoogleRestaurantForUser,
+    fetchFriendRestaurantPins,
 } from "../services/restaurant";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import useUserProfile from "../hooks/useUserProfile";
+import PinModal from "../components/map/PinModal";
 import SaveRestaurantModal from "../components/map/SaveRestaurantModal";
+import {
+    clearMarkers,
+    renderUnifiedMarkers,
+} from "../utils/mapMarkers";
+
+function mergeRestaurantPins(savedRestaurants, friendRestaurants) {
+    const mergedMap = new Map();
+
+    for (const restaurant of savedRestaurants || []) {
+        mergedMap.set(restaurant.id, {
+            restaurantId: restaurant.id,
+            google_place_id: restaurant.google_place_id || null,
+            name: restaurant.name,
+            address: restaurant.address,
+            lat: restaurant.lat,
+            lng: restaurant.lng,
+            source: restaurant.source,
+            isSavedByUser: true,
+            currentUserEntryCount: 0,
+            friends: [],
+            averageRating: null,
+        });
+    }
+
+    for (const restaurant of friendRestaurants || []) {
+        const existing = mergedMap.get(restaurant.restaurantId);
+
+        if (existing) {
+            mergedMap.set(restaurant.restaurantId, {
+                ...existing,
+                google_place_id:
+                    existing.google_place_id || restaurant.google_place_id || null,
+                friends: restaurant.friends || [],
+                currentUserEntryCount: restaurant.currentUserEntryCount || 0,
+                averageRating: restaurant.averageRating ?? existing.averageRating ?? null,
+            });
+        } else {
+            mergedMap.set(restaurant.restaurantId, {
+                restaurantId: restaurant.restaurantId,
+                google_place_id: restaurant.google_place_id || null,
+                name: restaurant.name,
+                address: restaurant.address,
+                lat: restaurant.lat,
+                lng: restaurant.lng,
+                source: "friends",
+                isSavedByUser: false,
+                currentUserEntryCount: restaurant.currentUserEntryCount || 0,
+                friends: restaurant.friends || [],
+                averageRating: restaurant.averageRating ?? null,
+            });
+        }
+    }
+
+    return Array.from(mergedMap.values());
+}
+
+function upsertSavedRestaurantIntoMerged(existingRestaurants, savedRestaurant) {
+    const existingIndex = existingRestaurants.findIndex(
+        (restaurant) => restaurant.restaurantId === savedRestaurant.id
+    );
+
+    if (existingIndex === -1) {
+        return [
+            {
+                restaurantId: savedRestaurant.id,
+                google_place_id: savedRestaurant.google_place_id || null,
+                name: savedRestaurant.name,
+                address: savedRestaurant.address,
+                lat: savedRestaurant.lat,
+                lng: savedRestaurant.lng,
+                source: savedRestaurant.source,
+                isSavedByUser: true,
+                currentUserEntryCount: 0,
+                friends: [],
+                averageRating: null,
+            },
+            ...existingRestaurants,
+        ];
+    }
+
+    const updatedRestaurants = [...existingRestaurants];
+    const existing = updatedRestaurants[existingIndex];
+
+    updatedRestaurants[existingIndex] = {
+        ...existing,
+        restaurantId: savedRestaurant.id,
+        google_place_id: savedRestaurant.google_place_id || existing.google_place_id || null,
+        name: savedRestaurant.name,
+        address: savedRestaurant.address,
+        lat: savedRestaurant.lat,
+        lng: savedRestaurant.lng,
+        source: savedRestaurant.source,
+        isSavedByUser: true,
+    };
+
+    return updatedRestaurants;
+}
 
 export default function MapPage() {
-    const { user, loading: userLoading, errorMessage: userErrorMessage } = useUserProfile();
+    const navigate = useNavigate();
+    const { user, errorMessage: userErrorMessage } = useUserProfile();
 
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
-    const savedMarkersRef = useRef([]);
+    const markersRef = useRef([]);
     const tempMarkerRef = useRef(null);
     const infoWindowRef = useRef(null);
     const isDropPinModeRef = useRef(false);
@@ -41,6 +142,11 @@ export default function MapPage() {
     const [userLocation, setUserLocation] = useState(null);
 
     const [isDropPinMode, setIsDropPinMode] = useState(false);
+    const [showFriendPins, setShowFriendPins] = useState(true);
+
+    const [selectedPin, setSelectedPin] = useState(null);
+    const [selectedFriend, setSelectedFriend] = useState(null);
+    const [currentUserEntryCount, setCurrentUserEntryCount] = useState(0);
 
     useEffect(() => {
         isDropPinModeRef.current = isDropPinMode;
@@ -173,12 +279,16 @@ export default function MapPage() {
                     );
                 });
 
-                const savedRestaurantRows = await fetchSavedRestaurantsForUser(user.id);
+                const [savedRestaurantRows, friendRestaurantRows] = await Promise.all([
+                    fetchSavedRestaurantsForUser(user.id),
+                    fetchFriendRestaurantPins(user.id),
+                ]);
 
                 if (!isMounted) return;
 
-                setRestaurants(savedRestaurantRows);
-                renderSavedMarkers(savedRestaurantRows, map);
+                setRestaurants(
+                    mergeRestaurantPins(savedRestaurantRows, friendRestaurantRows)
+                );
             } catch (error) {
                 console.error(error);
                 setErrorMessage(error.message || "Failed to load map page.");
@@ -193,15 +303,36 @@ export default function MapPage() {
 
         return () => {
             isMounted = false;
-            savedMarkersRef.current.forEach((marker) => marker.setMap(null));
+            clearMarkers(markersRef);
+
             if (tempMarkerRef.current) {
                 tempMarkerRef.current.setMap(null);
             }
+
             if (infoWindowRef.current) {
                 infoWindowRef.current.close();
             }
         };
     }, [user]);
+
+    useEffect(() => {
+        if (!mapInstanceRef.current) return;
+
+        const visibleRestaurants = showFriendPins
+            ? restaurants
+            : restaurants.filter((restaurant) => restaurant.isSavedByUser);
+
+        renderUnifiedMarkers({
+            restaurantRows: visibleRestaurants,
+            map: mapInstanceRef.current,
+            markersRef,
+            onMarkerClick: (restaurant) => {
+                setSelectedPin(restaurant);
+                setSelectedFriend(null);
+                setCurrentUserEntryCount(restaurant.currentUserEntryCount || 0);
+            },
+        });
+    }, [restaurants, showFriendPins]);
 
     useEffect(() => {
         async function fetchAutocompleteSuggestions() {
@@ -292,49 +423,6 @@ export default function MapPage() {
         }
     }
 
-    function renderSavedMarkers(restaurantRows, map) {
-        savedMarkersRef.current.forEach((marker) => marker.setMap(null));
-
-        savedMarkersRef.current = restaurantRows.map((restaurant) => {
-            const marker = new window.google.maps.Marker({
-                map,
-                position: {
-                    lat: restaurant.lat,
-                    lng: restaurant.lng,
-                },
-                title: restaurant.name,
-            });
-
-            marker.addListener("click", () => {
-                closeInfoWindow();
-
-                const content = `
-          <div style="min-width: 220px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
-            <div style="padding: 0; margin: 0;">
-              <div style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.25;">
-                ${escapeHtml(restaurant.name)}
-              </div>
-              <p style="margin: 0 0 6px 0; font-size: 14px; color: #444; line-height: 1.4;">
-                ${escapeHtml(restaurant.address || "No address provided")}
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #777; text-transform: capitalize;">
-                Source: ${escapeHtml(restaurant.source)}
-              </p>
-            </div>
-          </div>
-        `;
-
-                infoWindowRef.current.setContent(content);
-                infoWindowRef.current.open({
-                    anchor: marker,
-                    map,
-                });
-            });
-
-            return marker;
-        });
-    }
-
     function placeTemporaryMarker(position) {
         if (!mapInstanceRef.current) return;
 
@@ -378,33 +466,33 @@ export default function MapPage() {
         }
 
         const content = `
-      <div style="min-width: 240px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
-        <div style="padding: 0; margin: 0;">
-          <div style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.25;">
-            ${escapeHtml(place.displayName || "Selected restaurant")}
-          </div>
-          <p style="margin: 0 0 12px 0; font-size: 14px; color: #444; line-height: 1.4;">
-            ${escapeHtml(place.formattedAddress || "No address available")}
-          </p>
-          <button
-            data-quick-add-google-place="true"
-            style="
-              display: inline-block;
-              background: rgb(203,84,51);
-              color: white;
-              border: none;
-              border-radius: 8px;
-              padding: 10px 14px;
-              font-size: 13px;
-              font-weight: 600;
-              cursor: pointer;
-            "
-          >
-            Quick Add
-          </button>
-        </div>
-      </div>
-    `;
+            <div style="min-width: 240px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
+                <div style="padding: 0; margin: 0;">
+                    <div style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.25;">
+                        ${place.displayName || "Selected restaurant"}
+                    </div>
+                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #444; line-height: 1.4;">
+                        ${place.formattedAddress || "No address available"}
+                    </p>
+                    <button
+                        data-quick-add-google-place="true"
+                        style="
+                            display: inline-block;
+                            background: rgb(203,84,51);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 10px 14px;
+                            font-size: 13px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        "
+                    >
+                        Quick Add
+                    </button>
+                </div>
+            </div>
+        `;
 
         infoWindowRef.current.setContent(content);
         infoWindowRef.current.open({
@@ -468,7 +556,12 @@ export default function MapPage() {
         }
 
         try {
-            const existingRestaurantIds = new Set(restaurants.map((restaurant) => restaurant.id));
+            const alreadySavedByUser = restaurants.some(
+                (restaurant) =>
+                    restaurant.restaurantId === selectedGooglePlace.id ||
+                    (restaurant.google_place_id === google_place_id &&
+                        restaurant.isSavedByUser)
+            );
 
             const result = await saveGoogleRestaurantForUser({
                 userId: user.id,
@@ -485,20 +578,21 @@ export default function MapPage() {
                 lng,
             });
 
-            const alreadySavedByUser = existingRestaurantIds.has(result.restaurant.id);
+            const alreadySavedNow = restaurants.some(
+                (restaurant) =>
+                    restaurant.restaurantId === result.restaurant.id &&
+                    restaurant.isSavedByUser
+            );
 
-            if (alreadySavedByUser) {
+            if (alreadySavedByUser || alreadySavedNow) {
                 alert("You already have this restaurant pinned.");
                 handleCancelGoogleSave();
                 return;
             }
 
-            const updatedRestaurants = [result.restaurant, ...restaurants];
-            setRestaurants(updatedRestaurants);
-
-            if (mapInstanceRef.current) {
-                renderSavedMarkers(updatedRestaurants, mapInstanceRef.current);
-            }
+            setRestaurants((prev) =>
+                upsertSavedRestaurantIntoMerged(prev, result.restaurant)
+            );
 
             handleCancelGoogleSave();
         } catch (error) {
@@ -524,12 +618,9 @@ export default function MapPage() {
                 lng: manualPin.lng,
             });
 
-            const updatedRestaurants = [newRestaurant, ...restaurants];
-            setRestaurants(updatedRestaurants);
-
-            if (mapInstanceRef.current) {
-                renderSavedMarkers(updatedRestaurants, mapInstanceRef.current);
-            }
+            setRestaurants((prev) =>
+                upsertSavedRestaurantIntoMerged(prev, newRestaurant)
+            );
 
             handleCancelManualSave();
             setIsDropPinMode(false);
@@ -541,6 +632,8 @@ export default function MapPage() {
 
     function handleToggleDropPinMode() {
         closeInfoWindow();
+        setSelectedPin(null);
+        setSelectedFriend(null);
         setSuggestions([]);
         setShouldFetchSuggestions(false);
         setShowGoogleSave(false);
@@ -569,13 +662,33 @@ export default function MapPage() {
         closeInfoWindow();
     }
 
-    function escapeHtml(value) {
-        return String(value)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
+    function handleClosePinModal() {
+        setSelectedPin(null);
+        setSelectedFriend(null);
+    }
+
+    function handleViewDiary() {
+        if (!selectedPin) return;
+
+        if (selectedFriend) {
+            navigate(
+                `/friends/${selectedFriend.id}/restaurants/${selectedPin.restaurantId}`
+            );
+            return;
+        }
+
+        if (selectedPin.isSavedByUser) {
+            navigate(`/restaurant/${selectedPin.restaurantId}`);
+            return;
+        }
+
+        alert("Select a friend or create an entry first.");
+    }
+
+    function handleAddEntry() {
+        if (!selectedPin) return;
+
+        navigate(`/diary/new?restaurantId=${selectedPin.restaurantId}`);
     }
 
     if (userErrorMessage) {
@@ -583,7 +696,6 @@ export default function MapPage() {
     }
 
     return (
-
         <div className="relative h-full w-full overflow-hidden">
             {errorMessage && (
                 <div className="absolute top-4 left-6 z-30">
@@ -593,17 +705,39 @@ export default function MapPage() {
                 </div>
             )}
 
-            <div className="absolute top-4 left-4 right-4 z-20 lg:top-6 lg:left-6 lg:right-auto lg:w-[420px]">
-                <input
-                    type="text"
-                    value={searchValue}
-                    onChange={(e) => {
-                        setSearchValue(e.target.value);
-                        setShouldFetchSuggestions(true);
-                    }}
-                    placeholder="Search restaurants or places..."
-                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 shadow-lg outline-none focus:border-[rgb(203,84,51)]"
-                />
+            <div className="absolute top-4 left-4 right-4 z-20 lg:top-6 lg:left-6 lg:right-auto lg:w-[560px]">
+                <div className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={searchValue}
+                        onChange={(e) => {
+                            setSearchValue(e.target.value);
+                            setShouldFetchSuggestions(true);
+                        }}
+                        placeholder="Search restaurants or places..."
+                        className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 shadow-lg outline-none focus:border-[rgb(203,84,51)]"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const nextValue = !showFriendPins;
+
+                            if (!nextValue && selectedPin && !selectedPin.isSavedByUser) {
+                                setSelectedPin(null);
+                                setSelectedFriend(null);
+                            }
+
+                            setShowFriendPins(nextValue);
+                        }}
+                        className={`shrink-0 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${showFriendPins
+                            ? "bg-[rgb(203,84,51)] text-white"
+                            : "bg-white text-stone-700"
+                            }`}
+                    >
+                        {showFriendPins ? "Hide Friends" : "Show Friends"}
+                    </button>
+                </div>
 
                 {suggestions.length > 0 && (
                     <div className="mt-2 overflow-hidden rounded-xl border border-stone-300 bg-white shadow-xl">
@@ -620,10 +754,10 @@ export default function MapPage() {
                 )}
             </div>
 
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 lg:top-6 lg:right-6 lg:left-auto lg:bottom-auto lg:translate-x-0">
+            <div className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 lg:top-6 lg:right-6 lg:left-auto lg:bottom-auto lg:translate-x-0">
                 <button
                     onClick={handleToggleDropPinMode}
-                    className={`rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${isDropPinMode
+                    className={`rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${isDropPinMode
                         ? "bg-white text-stone-700"
                         : "bg-[rgb(203,84,51)] text-white"
                         }`}
@@ -633,6 +767,18 @@ export default function MapPage() {
             </div>
 
             <div ref={mapRef} className="h-full w-full" />
+
+            <PinModal
+                isOpen={!!selectedPin}
+                onClose={handleClosePinModal}
+                restaurant={selectedPin}
+                isFriendView={Boolean(selectedPin?.friends?.length)}
+                onAddEntry={handleAddEntry}
+                onViewDiary={handleViewDiary}
+                currentUserEntryCount={currentUserEntryCount}
+                selectedFriendId={selectedFriend?.id}
+                onSelectFriend={setSelectedFriend}
+            />
 
             {showGoogleSave && (
                 <SaveRestaurantModal

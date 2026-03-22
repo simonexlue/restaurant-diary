@@ -31,14 +31,14 @@ export default function SaveRestaurantModal({
                 <div className="flex gap-2">
                     <button
                         onClick={onConfirm}
-                        className="rounded-lg bg-[rgb(203,84,51)] px-8 py-2 text-sm text-white hover:bg-stone-700"
+                        className="rounded-lg bg-[rgb(203,84,51)] px-8 py-2 text-sm text-white hover:bg-stone-700 hover:cursor-pointer"
                     >
                         Save
                     </button>
 
                     <button
                         onClick={onCancel}
-                        className="rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50"
+                        className="rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 hover:cursor-pointer"
                     >
                         Cancel
                     </button>
