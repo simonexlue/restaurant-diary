@@ -359,6 +359,8 @@ export default function Friends() {
                                 <FriendsReviewCard
                                     key={feed.id}
                                     id={feed.id}
+                                    friendId={feed.friendId}
+                                    restaurantId={feed.restaurantId}
                                     displayName={feed.displayName}
                                     userName={feed.userName}
                                     userAvatar={feed.userAvatar}

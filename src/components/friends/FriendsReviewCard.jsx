@@ -1,9 +1,12 @@
 import photo from "../../assets/auth-hero.jpg"
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import { formatDate } from "../../utils/date";
+import { useNavigate } from "react-router-dom";
 
 export default function FriendsReviewCard({
     id,
+    friendId,
+    restaurantId,
     displayName,
     userName,
     userAvatar,
@@ -14,6 +17,8 @@ export default function FriendsReviewCard({
     dishCount,
     photoUrl,
 }) {
+    const navigate = useNavigate()
+
     function renderStars(rating = 0) {
         const fullStars = Math.floor(rating);
         const hasHalfStar = rating % 1 >= 0.5;
@@ -69,7 +74,17 @@ export default function FriendsReviewCard({
                     <p className="text-[rgb(137,122,114)] text-xs">
                         {dishCount} {dishCount === 1 ? "dish reviewed" : "dishes reviewed"}
                     </p>
-                    <button className="px-4 py-1 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">
+                    <button
+                        type="button"
+                        className="px-4 py-1 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
+                        onClick={() =>
+                            navigate(`/friends/${friendId}/restaurants/${restaurantId}`, {
+                                state: {
+                                    friendName: displayName,
+                                },
+                            })
+                        }
+                    >
                         View
                     </button>
                 </div>

@@ -63,21 +63,25 @@ export default function DishCard({
                     <div className="flex flex-row justify-between items-start">
                         <p className="text-stone-800 md:text-xl">{dishName}</p>
                         <div className="flex items-center gap-1 mr-3">
-                            <button
-                                type="button"
-                                className="text-md px-2 py-1 text-green-700 hover:cursor-pointer"
-                                onClick={onEdit}
-                            >
-                                <HiOutlinePencil />
-                            </button>
+                            {onEdit && (
+                                <button
+                                    type="button"
+                                    className="text-md px-2 py-1 text-green-700 hover:cursor-pointer"
+                                    onClick={onEdit}
+                                >
+                                    <HiOutlinePencil />
+                                </button>
+                            )}
 
-                            <button
-                                type="button"
-                                className="text-md px-2 py-1 text-red-400 hover:cursor-pointer"
-                                onClick={onDelete}
-                            >
-                                <GoTrash />
-                            </button>
+                            {onDelete && (
+                                <button
+                                    type="button"
+                                    className="text-md px-2 py-1 text-red-400 hover:cursor-pointer"
+                                    onClick={onDelete}
+                                >
+                                    <GoTrash />
+                                </button>
+                            )}
 
                             <button
                                 type="button"

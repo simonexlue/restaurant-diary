@@ -31,6 +31,7 @@ export default function App() {
         <Route path="/diary/new" element={<CreateDishEntry />} />
         <Route path="/restaurant/:id" element={<RestaurantDetails />} />
         <Route path="/friends" element={<Friends />} />
+        <Route path="/friends/:friendId/restaurants/:id" element={<RestaurantDetails />} />
       </Route>
 
     </Routes>
