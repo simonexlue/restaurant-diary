@@ -4,7 +4,7 @@ import { FaRegStar } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
 import { MdPeopleOutline, MdOutlineCalendarToday } from "react-icons/md";
 import DishCard from "../components/restaurant/DishCard";
-import { getRestaurantById } from "../services/restaurant";
+import { getRestaurantById, fetchFriendRestaurantPins } from "../services/restaurant";
 import { useEffect, useState, useMemo } from "react";
 import {
     getDishEntriesForRestaurant,
@@ -29,10 +29,16 @@ export default function RestaurantDetails() {
     const [openEntryId, setOpenEntryId] = useState(null);
     const [editingEntryId, setEditingEntryId] = useState(null);
     const [deletingEntryId, setDeletingEntryId] = useState(null);
+    const [friendsVisitedCount, setFriendsVisitedCount] = useState(
+        location.state?.restaurant?.friends?.length ?? 0
+    );
 
     const isFriendView = Boolean(friendId);
     const targetUserId = friendId || user?.id;
-    const friendName = location.state?.friendName || "Friend";
+    const friendName =
+        location.state?.friendName ||
+        location.state?.restaurant?.selectedFriendName ||
+        "Friend";
     const canManageEntries = !isFriendView;
 
     const dishesTried = dishEntries.length;
@@ -65,8 +71,10 @@ export default function RestaurantDetails() {
                 setLoading(true);
                 setErrorMessage("");
 
-                const restaurantData = await getRestaurantById(id);
-                const dishEntriesData = await getDishEntriesForRestaurant(id, targetUserId);
+                const [restaurantData, dishEntriesData] = await Promise.all([
+                    getRestaurantById(id),
+                    getDishEntriesForRestaurant(id, targetUserId),
+                ]);
 
                 const dishEntriesWithPhotoUrls = await Promise.all(
                     dishEntriesData.map(async (entry) => {
@@ -88,6 +96,15 @@ export default function RestaurantDetails() {
 
                 setRestaurant(restaurantData);
                 setDishEntries(dishEntriesWithPhotoUrls);
+
+                if (!isFriendView) {
+                    const friendRestaurants = await fetchFriendRestaurantPins(user.id);
+                    const matchingRestaurant = friendRestaurants.find(
+                        (item) => String(item.restaurantId) === String(id)
+                    );
+
+                    setFriendsVisitedCount(matchingRestaurant?.friends?.length ?? 0);
+                }
             } catch (error) {
                 setErrorMessage(error.message || "Failed to get restaurant details.");
             } finally {
@@ -96,7 +113,7 @@ export default function RestaurantDetails() {
         }
 
         loadRestaurant();
-    }, [id, targetUserId, user, profileLoading, profileErrorMessage]);
+    }, [id, targetUserId, user, profileLoading, profileErrorMessage, isFriendView]);
 
     async function refreshRestaurantEntries() {
         if (!id || !targetUserId) {
@@ -183,56 +200,40 @@ export default function RestaurantDetails() {
 
             case "az":
                 return entriesCopy.sort((a, b) => {
-                    return String(a.dish_name || "").localeCompare(String(b.dish_name || ""));
+                    return (a.dish_name || "").localeCompare(b.dish_name || "");
                 });
 
             case "latest":
             default:
                 return entriesCopy.sort((a, b) => {
-                    const aDate = a.date_tried ? new Date(a.date_tried).getTime() : 0;
-                    const bDate = b.date_tried ? new Date(b.date_tried).getTime() : 0;
-
-                    if (bDate !== aDate) {
-                        return bDate - aDate;
-                    }
-
-                    const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-                    const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-                    return bCreated - aCreated;
+                    const dateA = new Date(a.date_tried || a.created_at);
+                    const dateB = new Date(b.date_tried || b.created_at);
+                    return dateB - dateA;
                 });
         }
     }, [dishEntries, sortBy]);
 
-    async function handleDeleteEntry(entry) {
-        if (!canManageEntries) {
-            return;
-        }
+    async function handleDeleteRestaurant() {
+        if (!user?.id || !restaurant?.id) return;
 
-        const confirmed = window.confirm(`Delete ${entry.dish_name}?`);
+        const confirmed = window.confirm(
+            "Delete this restaurant and all your entries? This cannot be undone."
+        );
+
         if (!confirmed) return;
 
         try {
-            setDeletingEntryId(entry.id);
-
-            await deleteDishEntry({
-                entryId: entry.id,
+            await deleteRestaurantForUser({
+                restaurantId: restaurant.id,
                 userId: user.id,
-                photoPath: entry.photo_path,
             });
 
-            setDishEntries((prev) => prev.filter((dish) => dish.id !== entry.id));
-            setOpenEntryId((prev) => (prev === entry.id ? null : prev));
         } catch (error) {
-            setErrorMessage(error.message || "Failed to delete dish entry");
-        } finally {
-            setDeletingEntryId(null);
+            setErrorMessage(error.message || "Failed to delete restaurant.");
         }
     }
 
-    const dishesHeading = isFriendView
-        ? `${friendName}'s Dishes`
-        : "My Dishes";
+    const dishesHeading = isFriendView ? `${friendName}'s Dishes` : "Your Dishes";
 
     return (
         <div className="flex flex-col gap-4 mx-auto w-full max-w-6xl">
@@ -323,7 +324,9 @@ export default function RestaurantDetails() {
                             </div>
 
                             <div>
-                                <p className="text-lg font-semibold">{isFriendView ? "Friend" : "1"}</p>
+                                <p className="text-lg font-semibold">
+                                    {isFriendView ? "Friend" : friendsVisitedCount}
+                                </p>
                                 <p className="text-xs text-[rgb(137,122,114)]">
                                     {isFriendView ? "Shared View" : "Friends Visited"}
                                 </p>

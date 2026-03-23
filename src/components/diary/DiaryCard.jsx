@@ -1,3 +1,4 @@
+import { GoTrash } from "react-icons/go";
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
@@ -67,13 +68,18 @@ export default function DiaryCard({
     averageRating,
     topTag,
     imageUrl,
+    onDelete,
+    isDeleting,
 }) {
     const navigate = useNavigate();
+
     return (
         <div
             onClick={() => navigate(`/restaurant/${id}`)}
-            className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white hover:cursor-pointer hover:border-[rgb(203,84,51)]">
-            <div className="h-56 md:h-64 lg:h-56 w-full bg-stone-100">
+            className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white hover:cursor-pointer hover:border-[rgb(203,84,51)]"
+        >
+            {/* IMAGE + DELETE BUTTON */}
+            <div className="relative h-56 md:h-64 lg:h-56 w-full bg-stone-100">
                 {imageUrl ? (
                     <img
                         src={imageUrl}
@@ -85,6 +91,18 @@ export default function DiaryCard({
                         No photo yet
                     </div>
                 )}
+
+                {/* DELETE BUTTON */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete?.();
+                    }}
+                    disabled={isDeleting}
+                    className="absolute top-2 right-2 rounded-full bg-white/90 p-2 shadow hover:bg-red-50"
+                >
+                    <GoTrash className="text-red-600" size={16} />
+                </button>
             </div>
 
             <div className="flex flex-1 flex-col px-3 py-3 gap-1">

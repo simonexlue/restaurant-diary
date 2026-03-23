@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import DiaryCard from "../components/diary/DiaryCard";
-import { getUserDiaryRestaurants, getUserDishEntries, getDishPhotoUrl } from "../services/diary";
+import {
+    getUserDiaryRestaurants,
+    getUserDishEntries,
+    getDishPhotoUrl,
+} from "../services/diary";
+import { deleteRestaurantForUser } from "../services/restaurant";
 import useUserProfile from "../hooks/useUserProfile";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import TagPill from "../components/ui/TagPill";
@@ -10,7 +15,7 @@ function normalizeTags(tags) {
     if (!tags) return [];
 
     if (Array.isArray(tags)) {
-        return tags.map((tag) => String(tag).trim()).filter(Boolean)
+        return tags.map((tag) => String(tag).trim()).filter(Boolean);
     }
 
     return [String(tags).trim()].filter(Boolean);
@@ -149,6 +154,7 @@ export default function MyDiary() {
     const [allTags, setAllTags] = useState([]);
     const [tagsExpanded, setTagsExpanded] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
+    const [deletingRestaurantId, setDeletingRestaurantId] = useState(null);
 
     const tagsContainerRef = useRef(null);
 
@@ -206,6 +212,32 @@ export default function MyDiary() {
             setErrorMessage(error.message || "Failed to load restaurants");
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleDeleteRestaurant(restaurantId, restaurantName) {
+        if (!user?.id || !restaurantId) return;
+
+        const confirmed = window.confirm(
+            `Delete "${restaurantName}" and all entries in it? This cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            setDeletingRestaurantId(restaurantId);
+            setErrorMessage("");
+
+            await deleteRestaurantForUser({
+                restaurantId,
+                userId: user.id,
+            });
+
+            await fetchDiaryData();
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to delete restaurant.");
+        } finally {
+            setDeletingRestaurantId(null);
         }
     }
 
@@ -359,19 +391,24 @@ export default function MyDiary() {
                 </p>
 
                 {filteredRestaurants.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 lg:grid-cols-3 xl:grid-cols-5">
+                    <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                         {filteredRestaurants.map((restaurant) => (
-                            <DiaryCard
-                                key={restaurant.id}
-                                id={restaurant.id}
-                                name={restaurant.name}
-                                address={restaurant.address}
-                                entryCount={restaurant.entryCount}
-                                lastVisited={restaurant.lastVisited}
-                                averageRating={restaurant.averageRating}
-                                topTag={restaurant.topTag}
-                                imageUrl={restaurant.imageUrl}
-                            />
+                            <div key={restaurant.id} className="flex flex-col gap-2">
+                                <DiaryCard
+                                    id={restaurant.id}
+                                    name={restaurant.name}
+                                    address={restaurant.address}
+                                    entryCount={restaurant.entryCount}
+                                    lastVisited={restaurant.lastVisited}
+                                    averageRating={restaurant.averageRating}
+                                    topTag={restaurant.topTag}
+                                    imageUrl={restaurant.imageUrl}
+                                    onDelete={() =>
+                                        handleDeleteRestaurant(restaurant.id, restaurant.name)
+                                    }
+                                    isDeleting={deletingRestaurantId === restaurant.id}
+                                />
+                            </div>
                         ))}
                     </div>
                 ) : (

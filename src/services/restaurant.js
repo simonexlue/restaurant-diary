@@ -245,21 +245,84 @@ export async function saveGoogleRestaurantForUser({
 }
 
 export async function getRestaurantById(restaurant_id) {
+    if (!restaurant_id) {
+        throw new Error("Restaurant id is missing.");
+    }
 
-  if(!restaurant_id){
-    throw new Error("Restaurant id is missing.")
-  }
+    const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("id", restaurant_id)
+        .single();
 
-  const {data, error} = await supabase
-    .from("restaurants")
-    .select("*")
-    .eq("id", restaurant_id)
-    .single();
+    if (error) {
+        throw error;
+    }
 
-  if(error) {
-    throw error;
-  }
-  return data
+    return data;
+}
+
+export async function deleteRestaurantForUser({ userId, restaurantId }) {
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    if (!restaurantId) {
+        throw new Error("Restaurant id is required.");
+    }
+
+    const { error: deleteSavedError } = await supabase
+        .from("saved_restaurants")
+        .delete()
+        .eq("user_id", userId)
+        .eq("restaurant_id", restaurantId);
+
+    if (deleteSavedError) {
+        throw deleteSavedError;
+    }
+
+    const [
+        { count: remainingSavedCount, error: remainingSavedError },
+        { count: remainingDishEntryCount, error: remainingDishEntryError },
+    ] = await Promise.all([
+        supabase
+            .from("saved_restaurants")
+            .select("*", { count: "exact", head: true })
+            .eq("restaurant_id", restaurantId),
+
+        supabase
+            .from("dish_entries")
+            .select("*", { count: "exact", head: true })
+            .eq("restaurant_id", restaurantId),
+    ]);
+
+    if (remainingSavedError) {
+        throw remainingSavedError;
+    }
+
+    if (remainingDishEntryError) {
+        throw remainingDishEntryError;
+    }
+
+    const canDeleteRestaurantRow =
+        (remainingSavedCount ?? 0) === 0 &&
+        (remainingDishEntryCount ?? 0) === 0;
+
+    if (canDeleteRestaurantRow) {
+        const { error: deleteRestaurantError } = await supabase
+            .from("restaurants")
+            .delete()
+            .eq("id", restaurantId);
+
+        if (deleteRestaurantError) {
+            throw deleteRestaurantError;
+        }
+    }
+
+    return {
+        removedFromUserSavedRestaurants: true,
+        deletedRestaurantRow: canDeleteRestaurantRow,
+    };
 }
 
 export async function fetchFriendRestaurantPins(userId) {

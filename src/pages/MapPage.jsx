@@ -672,13 +672,27 @@ export default function MapPage() {
 
         if (selectedFriend) {
             navigate(
-                `/friends/${selectedFriend.id}/restaurants/${selectedPin.restaurantId}`
+                `/friends/${selectedFriend.id}/restaurants/${selectedPin.restaurantId}`,
+                {
+                    state: {
+                        friendName:
+                            selectedFriend.display_name ||
+                            selectedFriend.displayName ||
+                            selectedFriend.username ||
+                            "Friend",
+                        restaurant: selectedPin,
+                    },
+                }
             );
             return;
         }
 
         if (selectedPin.isSavedByUser) {
-            navigate(`/restaurant/${selectedPin.restaurantId}`);
+            navigate(`/restaurant/${selectedPin.restaurantId}`, {
+                state: {
+                    restaurant: selectedPin,
+                },
+            });
             return;
         }
 
