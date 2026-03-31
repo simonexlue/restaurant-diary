@@ -712,7 +712,7 @@ export default function MapPage() {
     return (
         <div className="relative h-full w-full overflow-hidden">
             {errorMessage && (
-                <div className="absolute top-4 left-6 z-30">
+                <div className="absolute top-4 left-6 z-20">
                     <p className="mt-2 rounded-md bg-white/90 px-3 py-2 text-sm text-red-600 shadow">
                         {errorMessage}
                     </p>
