@@ -4,6 +4,7 @@ import { PiBowlFood } from "react-icons/pi";
 import NavLinkItem from "../common/NavLinkItem";
 import { IoSearchOutline } from "react-icons/io5";
 import { useState, useEffect } from "react";
+import { IoClose } from "react-icons/io5";
 
 export default function TopNavigation() {
     const navlinks = [
@@ -73,17 +74,18 @@ export default function TopNavigation() {
                             onClick={() => setIsMenuOpen(false)}
                             className="cursor-pointer"
                         >
-                            x
+                            <IoClose size={18} className="text-[rgb(137,122,114)]" />
                         </button>
                     </div>
 
-                    <div className="mt-4 ml-6 flex flex-col gap-6">
+                    <div className="mt-4 ml-6 mr-6 flex flex-col gap-6">
                         {navlinks.map((item) => (
                             <NavLinkItem
                                 key={item.path}
                                 label={item.label}
                                 path={item.path}
                                 onClick={() => setIsMenuOpen(false)}
+                                variant="mobile"
                             />
                         ))}
                     </div>
