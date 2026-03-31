@@ -41,13 +41,6 @@ export default function Home() {
                     <button className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg lg:hidden">Search</button>
                 </div>
             </div>
-
-            <button
-                onClick={handleLogOut}
-                className="px-4 py-2 text-sm text-white rounded-lg bg-red-500"
-            >
-                Logout
-            </button>
         </div>
     )
 }

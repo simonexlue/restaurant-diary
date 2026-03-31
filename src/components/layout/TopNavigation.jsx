@@ -5,8 +5,15 @@ import NavLinkItem from "../common/NavLinkItem";
 import { IoSearchOutline } from "react-icons/io5";
 import { useState, useEffect } from "react";
 import { IoClose } from "react-icons/io5";
+import { supabase } from "../../lib/supabase";
+import useUserProfile from "../../hooks/useUserProfile";
+import { useNavigate } from "react-router-dom";
 
 export default function TopNavigation() {
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const { profile, loading, errorMessage } = useUserProfile()
+    const navigate = useNavigate();
+
     const navlinks = [
         { label: "Map", path: "/map" },
         { label: "My Diary", path: "/diary" },
@@ -14,8 +21,6 @@ export default function TopNavigation() {
         { label: "Collections", path: "/collections" },
         { label: "Profile", path: "/profile" },
     ]
-
-    const [isMenuOpen, setIsMenuOpen] = useState(false)
 
     useEffect(() => {
         function handleResize() {
@@ -28,6 +33,28 @@ export default function TopNavigation() {
 
         return () => window.removeEventListener("resize", handleResize);
     }, []);
+
+    if (loading) {
+        return <p>Loading...</p>;
+    }
+
+    if (errorMessage) {
+        return <p>{errorMessage}</p>;
+    }
+
+    async function handleLogOut() {
+        try {
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+                throw error;
+            }
+
+            navigate("/login");
+        } catch (error) {
+            console.error("Logout failed:", error.message);
+        }
+    }
 
     return (
         <>
@@ -78,16 +105,27 @@ export default function TopNavigation() {
                         </button>
                     </div>
 
-                    <div className="mt-4 ml-6 mr-6 flex flex-col gap-6">
-                        {navlinks.map((item) => (
-                            <NavLinkItem
-                                key={item.path}
-                                label={item.label}
-                                path={item.path}
-                                onClick={() => setIsMenuOpen(false)}
-                                variant="mobile"
-                            />
-                        ))}
+                    <div className="flex flex-col h-full">
+                        <div className="mt-4 ml-6 mr-6 flex flex-col gap-6">
+                            {navlinks.map((item) => (
+                                <NavLinkItem
+                                    key={item.path}
+                                    label={item.label}
+                                    path={item.path}
+                                    onClick={() => setIsMenuOpen(false)}
+                                    variant="mobile"
+                                />
+                            ))}
+                        </div>
+
+                        <div className="mt-auto ml-6 mr-6 mb-10">
+                            <button
+                                onClick={handleLogOut}
+                                className="w-full text-left text-red-500 hover:bg-[rgb(244,232,215)] pl-4 py-2 rounded-lg"
+                            >
+                                Logout
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
