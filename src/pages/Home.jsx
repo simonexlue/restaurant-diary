@@ -5,12 +5,22 @@ import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
+import PalateCard from "../components/home/PalateCard";
 
 const friendsMock = [
     { name: "Sarah M.", recentVisit: "Nobu Downtown", time: "3h ago" },
     { name: "James L.", recentVisit: "Tartine Bakery", time: "8h ago" },
     { name: "Priya K.", recentVisit: "Din Tai Fung", time: "5h ago" },
 ]
+
+const palateData = [
+    { label: "Japanese", percent: 85 },
+    { label: "Italian", percent: 68 },
+    { label: "French", percent: 45 },
+    { label: "Chinese", percent: 38 },
+    { label: "Nordic", percent: 20 },
+];
+
 
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile()
@@ -50,19 +60,35 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* Recent friends activity */}
-            <div className="bg-white py-3 px-6 rounded-lg">
-                <div className="flex flex-row gap-2 items-center">
-                    <MdPeopleOutline className="relative top-[-8px] text-[rgb(137,122,114)]" />
-                    <p className="text-[rgb(137,122,114)] text-sm mb-4">FRIENDS ACTIVITY</p>
+            <div className="bg-white py-3 px-6 rounded-lg flex flex-col gap-6">
+                {/* Palate Section */}
+                <div className="flex flex-col gap-2">
+                    <p className="text-[rgb(137,122,114)] text-sm mt-2">YOUR PALATE</p>
+                    <p className="text-[rgb(137,122,114)] text-xs">Cuisines you've been loving lately</p>
+                    <div className="flex flex-col gap-4 mt-2">
+                        {palateData.map((palate) => (
+                            <PalateCard label={palate.label} percent={palate.percent} />
+                        ))}
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                    {friendsMock.map((friend) => (
-                        <FriendsActivity name={friend.name} recentVisit={friend.recentVisit} time={friend.time} />
-                    ))}
+                <div className="border-t border-stone-200 "></div>
+
+                {/* Recent friends activity */}
+                <div>
+                    <div className="flex flex-row gap-2 items-center">
+                        <MdPeopleOutline className="relative top-[-8px] text-[rgb(137,122,114)]" />
+                        <p className="text-[rgb(137,122,114)] text-sm mb-4">FRIENDS ACTIVITY</p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        {friendsMock.map((friend) => (
+                            <FriendsActivity name={friend.name} recentVisit={friend.recentVisit} time={friend.time} />
+                        ))}
+                    </div>
                 </div>
             </div>
+
         </div>
     )
 }
