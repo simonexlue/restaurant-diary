@@ -123,7 +123,7 @@ export default function TopNavigation() {
                                 onClick={handleLogOut}
                                 className="w-full text-left text-red-500 hover:bg-[rgb(244,232,215)] pl-4 py-2 rounded-lg"
                             >
-                                Logout
+                                Sign Out
                             </button>
                         </div>
                     </div>

@@ -9,6 +9,7 @@ import MyDiary from "./pages/MyDiary";
 import CreateDishEntry from "./pages/CreateDishEntry";
 import RestaurantDetails from "./pages/RestaurantDetails";
 import Friends from "./pages/Friends";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/restaurant/:id" element={<RestaurantDetails />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/friends/:friendId/restaurants/:id" element={<RestaurantDetails />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
     </Routes>

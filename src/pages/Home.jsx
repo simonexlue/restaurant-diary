@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { MdPeopleOutline } from "react-icons/md"
-import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
@@ -103,7 +102,7 @@ export default function Home() {
     }
 
     return (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-8 max-w-7xl mx-auto">
             <div className="bg-white px-6 py-6 shadow-xs rounded-lg flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start">
                 <div className="flex flex-col gap-1">
                     <p className="text-3xl text-bold text-stone-700">Welcome back</p>
@@ -125,56 +124,63 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="py-3 px-6 rounded-lg flex flex-col gap-6 bg-white shadow-xs">
-                {/* Palate Section */}
-                <div className="flex flex-col gap-2">
-                    <p className="text-[rgb(137,122,114)] text-sm mt-2">YOUR PALATE</p>
-                    <p className="text-[rgb(137,122,114)] text-xs">Cuisines you've been loving lately</p>
-                    <div className="flex flex-col gap-4 mt-2">
-                        {palateLoading ? (
-                            <p className="text-sm text-[rgb(137,122,114)]">Loading palate...</p>
-                        ) : palateError ? (
-                            <p className="text-sm text-red-500">{palateError}</p>
-                        ) : palateData.length === 0 ? (
-                            <p className="text-sm text-[rgb(137,122,114)]">No palate data yet.</p>
-                        ) : (
-                            palateData.map((palate) => (
-                                <PalateCard
-                                    key={palate.label}
-                                    label={palate.label}
-                                    percent={palate.percent}
-                                />
-                            ))
-                        )}
-                    </div>
-                </div>
+            <div className="py-3 pb-8 px-6 rounded-lg bg-white shadow-xs">
+                <div className="flex flex-col lg:flex-row lg:items-start">
+                    {/* Palate Section */}
+                    <div className="flex-1 flex flex-col gap-2 pt-2">
+                        <p className="text-[rgb(137,122,114)] text-sm">YOUR PALATE</p>
+                        <p className="text-[rgb(137,122,114)] text-xs">Cuisines you've been loving lately</p>
 
-                <div className="border-t border-stone-200 "></div>
-
-                {/* Recent friends activity */}
-                <div className="mb-4">
-                    <div className="flex flex-row gap-2 items-center">
-                        <MdPeopleOutline className="relative top-[-8px] text-[rgb(137,122,114)]" />
-                        <p className="text-[rgb(137,122,114)] text-sm mb-4">FRIENDS ACTIVITY</p>
+                        <div className="flex flex-col gap-4 mt-2">
+                            {palateLoading ? (
+                                <p className="text-sm text-[rgb(137,122,114)]">Loading palate...</p>
+                            ) : palateError ? (
+                                <p className="text-sm text-red-500">{palateError}</p>
+                            ) : palateData.length === 0 ? (
+                                <p className="text-sm text-[rgb(137,122,114)]">No palate data yet.</p>
+                            ) : (
+                                palateData.map((palate) => (
+                                    <PalateCard
+                                        key={palate.label}
+                                        label={palate.label}
+                                        percent={palate.percent}
+                                    />
+                                ))
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex flex-col gap-4">
-                        {friendsActivityLoading ? (
-                            <p className="text-sm text-[rgb(137,122,114)]">Loading activity...</p>
-                        ) : friendsActivityError ? (
-                            <p className="text-sm text-red-500">{friendsActivityError}</p>
-                        ) : friendsActivity.length === 0 ? (
-                            <p className="text-sm text-[rgb(137,122,114)]">No friend activity yet.</p>
-                        ) : (
-                            friendsActivity.map((friend) => (
-                                <FriendsActivity
-                                    key={friend.id}
-                                    name={friend.name}
-                                    recentVisit={friend.recentVisit}
-                                    time={friend.time}
-                                />
-                            ))
-                        )}
+                    {/* Mobile divider */}
+                    <div className="border-t border-stone-200 my-6 lg:hidden" />
+
+                    {/* Desktop divider */}
+                    <div className="hidden lg:block self-stretch w-px bg-stone-200 mx-6" />
+
+                    {/* Friends Activity */}
+                    <div className="flex-1 flex flex-col pt-2">
+                        <div className="flex flex-row gap-2 items-center mb-4">
+                            <MdPeopleOutline className="text-[rgb(137,122,114)]" />
+                            <p className="text-[rgb(137,122,114)] text-sm">FRIENDS ACTIVITY</p>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            {friendsActivityLoading ? (
+                                <p className="text-sm text-[rgb(137,122,114)]">Loading activity...</p>
+                            ) : friendsActivityError ? (
+                                <p className="text-sm text-red-500">{friendsActivityError}</p>
+                            ) : friendsActivity.length === 0 ? (
+                                <p className="text-sm text-[rgb(137,122,114)]">No friend activity yet.</p>
+                            ) : (
+                                friendsActivity.map((friend) => (
+                                    <FriendsActivity
+                                        key={friend.id}
+                                        name={friend.name}
+                                        recentVisit={friend.recentVisit}
+                                        time={friend.time}
+                                    />
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
