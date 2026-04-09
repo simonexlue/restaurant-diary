@@ -1,5 +1,6 @@
 import { MdPeopleOutline } from "react-icons/md"
 import { IoPricetagsOutline, IoLocationOutline, IoBookOutline } from "react-icons/io5";
+import { HiOutlinePencil } from "react-icons/hi2";
 import TagPill from "../components/ui/TagPill";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +9,8 @@ import useUserProfile from "../hooks/useUserProfile";
 import { getUserDiaryRestaurants, getUserDishEntries } from "../services/diary";
 import { getFriendsList } from "../services/friends";
 import { getTopTagsFromEntries } from "../utils/tags";
+import { getProfilePhotoUrl } from "../services/profile";
+import EditProfileModal from "../components/profile/EditProfileModal";
 
 export default function ProfilePage() {
     const navigate = useNavigate();
@@ -23,6 +26,8 @@ export default function ProfilePage() {
     const [totalPlaces, setTotalPlaces] = useState(0);
     const [totalFriends, setTotalFriends] = useState(0);
     const [dishEntries, setDishEntries] = useState([]);
+    const [profilePhotoUrl, setProfilePhotoUrl] = useState(null)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
     useEffect(() => {
         async function loadProfileData() {
@@ -51,6 +56,19 @@ export default function ProfilePage() {
 
         loadProfileData();
     }, [user?.id]);
+
+    useEffect(() => {
+        async function loadProfilePhoto() {
+            if (!profile?.avatar_url) {
+                setProfilePhotoUrl(null)
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(profile.avatar_url)
+            setProfilePhotoUrl(signedUrl)
+        }
+        loadProfilePhoto();
+    }, [profile?.avatar_url])
 
     const topTags = getTopTagsFromEntries(dishEntries, 20);
 
@@ -84,9 +102,28 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
 
             {/* Name / Pic / Location / Bio */}
-            <div className="bg-white flex flex-col justify-center items-center p-10 rounded-lg shadow-xs">
-                {/* Placeholder profile pic */}
-                <div className="bg-gray-300 w-20 h-20 rounded-full" />
+            <div className="bg-white relative flex flex-col justify-center items-center p-10 rounded-lg shadow-xs">
+
+                {/* Edit icon */}
+                <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="absolute top-4 right-4 text-stone-500 hover:text-[rgb(203,84,51)] hover:cursor-pointer"
+                >
+                    <HiOutlinePencil />
+                </button>
+
+                {/* Profile pic */}
+                {profilePhotoUrl ? (
+                    <img
+                        src={profilePhotoUrl}
+                        alt={`${profile?.display_name || profile?.username || "User"} avatar`}
+                        className="w-20 h-20 rounded-full object-cover"
+                    />
+                ) : (
+                    // Placeholder
+                    <div className="bg-gray-300 w-20 h-20 rounded-full" />
+                )}
 
                 {/* Name */}
                 <h1 className="text-2xl text-stone-800 font-semibold mt-4">{profile?.display_name || profile?.username || "Unnamed User"}</h1>
@@ -153,6 +190,14 @@ export default function ProfilePage() {
                     Sign Out
                 </button>
             </div>
+
+            {isEditModalOpen && (
+                <EditProfileModal
+                    profile={profile}
+                    profilePhotoUrl={profilePhotoUrl}
+                    onClose={() => setIsEditModalOpen(false)}
+                />
+            )}
         </div>
     )
 }
