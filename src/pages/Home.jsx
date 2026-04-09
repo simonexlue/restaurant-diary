@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import TopNavigation from "../components/layout/TopNavigation";
 import { MdPeopleOutline } from "react-icons/md"
 import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
@@ -7,13 +6,7 @@ import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
 import PalateCard from "../components/home/PalateCard";
 import RecentEntryCard from "../components/home/RecentEntryCard";
-import { getRecentEntries } from "../services/home";
-
-const friendsMock = [
-    { name: "Sarah M.", recentVisit: "Nobu Downtown", time: "3h ago" },
-    { name: "James L.", recentVisit: "Tartine Bakery", time: "8h ago" },
-    { name: "Priya K.", recentVisit: "Din Tai Fung", time: "5h ago" },
-]
+import { getRecentEntries, getHomeFriendsActivity } from "../services/home";
 
 const palateData = [
     { label: "Japanese", percent: 85 },
@@ -28,7 +21,36 @@ export default function Home() {
     const [recentEntries, setRecentEntries] = useState([])
     const [recentEntriesLoading, setRecentEntriesLoading] = useState(true)
     const [recentEntriesError, setRecentEntriesError] = useState("")
+
+    const [friendsActivity, setFriendsActivity] = useState([]);
+    const [friendsActivityLoading, setFriendsActivityLoading] = useState(true);
+    const [friendsActivityError, setFriendsActivityError] = useState("");
+
     const navigate = useNavigate();
+
+    useEffect(() => {
+        async function loadFriendsActivity() {
+            if (!profile?.id) {
+                setFriendsActivityLoading(false);
+                return;
+            }
+
+            try {
+                setFriendsActivityLoading(true);
+                setFriendsActivityError("");
+
+                const data = await getHomeFriendsActivity(profile.id);
+                setFriendsActivity(data);
+            } catch (error) {
+                setFriendsActivityError(error.message || "Failed to load friend activity");
+                setFriendsActivity([]);
+            } finally {
+                setFriendsActivityLoading(false);
+            }
+        }
+
+        loadFriendsActivity();
+    }, [profile?.id]);
 
     useEffect(() => {
         async function loadRecentEntries() {
@@ -43,7 +65,6 @@ export default function Home() {
 
                 const entries = await getRecentEntries(profile.id)
                 setRecentEntries(entries)
-                console.log(entries)
             } catch (error) {
                 setRecentEntriesError("Failed to load recent entries")
             } finally {
@@ -96,9 +117,22 @@ export default function Home() {
                     </div>
 
                     <div className="flex flex-col gap-4">
-                        {friendsMock.map((friend) => (
-                            <FriendsActivity key={friend.name} name={friend.name} recentVisit={friend.recentVisit} time={friend.time} />
-                        ))}
+                        {friendsActivityLoading ? (
+                            <p className="text-sm text-[rgb(137,122,114)]">Loading activity...</p>
+                        ) : friendsActivityError ? (
+                            <p className="text-sm text-red-500">{friendsActivityError}</p>
+                        ) : friendsActivity.length === 0 ? (
+                            <p className="text-sm text-[rgb(137,122,114)]">No friend activity yet.</p>
+                        ) : (
+                            friendsActivity.map((friend) => (
+                                <FriendsActivity
+                                    key={friend.id}
+                                    name={friend.name}
+                                    recentVisit={friend.recentVisit}
+                                    time={friend.time}
+                                />
+                            ))
+                        )}
                     </div>
                 </div>
             </div>

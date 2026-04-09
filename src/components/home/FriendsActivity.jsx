@@ -1,4 +1,5 @@
 import { MdPeopleOutline } from "react-icons/md"
+import { formatTimeAgo } from "../../utils/formatTimeAgo"
 
 export default function FriendsActivity({ name, recentVisit, time }) {
     return (
@@ -16,7 +17,7 @@ export default function FriendsActivity({ name, recentVisit, time }) {
                     <p className="text-[rgb(137,122,114)]">visited</p>
                     <p className="text-[rgb(203,84,51)]">{recentVisit}</p>
                 </div>
-                <p className="text-[rgb(137,122,114)] text-sm">{time}</p>
+                <p className="text-[rgb(137,122,114)] text-sm">{formatTimeAgo(time)}</p>
             </div>
         </div>
 

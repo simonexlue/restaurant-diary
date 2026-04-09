@@ -53,7 +53,6 @@ export default function Friends() {
 
                 const data = await getFriendsList(profile.id)
                 setFriends(data);
-                console.log(data)
             } catch (error) {
                 setFriendsError(error.message || "Failed to load friends")
                 setFriends([])
