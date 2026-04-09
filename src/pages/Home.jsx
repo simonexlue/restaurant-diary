@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
 import PalateCard from "../components/home/PalateCard";
 import RecentEntryCard from "../components/home/RecentEntryCard";
+import { getRecentEntries } from "../services/home";
 
 const friendsMock = [
     { name: "Sarah M.", recentVisit: "Nobu Downtown", time: "3h ago" },
@@ -61,26 +62,39 @@ const recentEntries = [
 
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile()
+    const [recentEntries, setRecentEntries] = useState([])
+    const [recentEntriesLoading, setRecentEntriesLoading] = useState(true)
+    const [recentEntriesError, setRecentEntriesError] = useState("")
+
+    useEffect(() => {
+        async function loadRecentEntries() {
+            if (!profile?.id) {
+                setRecentEntriesLoading(false)
+                return;
+            }
+
+            try {
+                setRecentEntriesLoading(true)
+                setRecentEntriesError("")
+
+                const entries = await getRecentEntries(profile.id)
+                setRecentEntries(entries)
+                console.log(entries)
+            } catch (error) {
+                setRecentEntriesError("Failed to load recent entries")
+            } finally {
+                setRecentEntriesLoading(false);
+            }
+        }
+
+        loadRecentEntries();
+    }, [profile?.id])
 
     if (loading) {
         return <p>Loading...</p>
     }
     if (errorMessage) {
         return <p>{errorMessage}</p>
-    }
-
-    async function handleLogOut() {
-        try {
-            const { error } = await supabase.auth.signOut();
-
-            if (error) {
-                throw error;
-            }
-
-            navigate("/login");
-        } catch (error) {
-            console.error("Logout failed:", error.message);
-        }
     }
 
     return (
@@ -93,7 +107,6 @@ export default function Home() {
                 <div className="flex flex-row gap-2">
                     <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+ Add Entry</button>
                     <button className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg">Open Map</button>
-                    <button className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg lg:hidden">Search</button>
                 </div>
             </div>
 
@@ -132,8 +145,20 @@ export default function Home() {
                     <p className="text-stone-700 text-md">Your latest meals, in one clean list.</p>
                 </div>
 
-                <div className="flex flex-col gap-6 items-center">
-                    {recentEntries.map((entry) => (
+                <div className="flex flex-col items-center">
+                    {recentEntriesLoading && (
+                        <p className="w-full px-6 text-sm text-stone-500">Loading recent entries...</p>
+                    )}
+
+                    {!recentEntriesLoading && recentEntriesError && (
+                        <p className="w-full px-6 text-sm text-red-600">{recentEntriesError}</p>
+                    )}
+
+                    {!recentEntriesLoading && !recentEntriesError && recentEntries.length === 0 && (
+                        <p className="w-full px-6 text-sm text-stone-500">No recent entries yet.</p>
+                    )}
+
+                    {!recentEntriesLoading && !recentEntriesError && recentEntries.map((entry, index) => (
                         <RecentEntryCard
                             key={entry.id}
                             restaurantName={entry.restaurantName}
@@ -144,6 +169,7 @@ export default function Home() {
                             review={entry.review}
                             location={entry.location}
                             photoUrl={entry.photoUrl}
+                            isLast={index === recentEntries.length - 1}
                         />
                     ))}
                 </div>
