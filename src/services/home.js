@@ -161,3 +161,67 @@ export async function getHomeFriendsActivity(currentUserId, limit = 5) {
 
   return activity.slice(0, limit);
 }
+
+function normalizeTags(tags) {
+    if (!tags) return [];
+
+    if (Array.isArray(tags)) {
+        return tags.map((tag) => String(tag).trim()).filter(Boolean);
+    }
+
+    return [String(tags).trim()].filter(Boolean);
+}
+
+export async function getHomePalateData(userId, limit = 5) {
+    if (!userId) {
+        throw new Error("User id is required");
+    }
+
+    const { data, error } = await supabase
+        .from("dish_entries")
+        .select("id, tags")
+        .eq("user_id", userId);
+
+    if (error) {
+        console.error("Error fetching palate data:", error);
+        throw error;
+    }
+
+    const entries = data || [];
+    const totalEntries = entries.length;
+
+    if (totalEntries === 0) {
+        return [];
+    }
+
+    const tagCounts = new Map();
+
+    for (const entry of entries) {
+        const normalizedTags = normalizeTags(entry.tags);
+
+        // prevent duplicate copies of the same tag inside one single entry
+        const uniqueTagsForEntry = [...new Set(normalizedTags)];
+
+        for (const tag of uniqueTagsForEntry) {
+            const currentCount = tagCounts.get(tag) || 0;
+            tagCounts.set(tag, currentCount + 1);
+        }
+    }
+
+    const palateData = Array.from(tagCounts.entries())
+        .map(([label, count]) => ({
+            label,
+            percent: Math.round((count / totalEntries) * 100),
+            count,
+        }))
+        .sort((a, b) => {
+            if (b.percent !== a.percent) {
+                return b.percent - a.percent;
+            }
+
+            return a.label.localeCompare(b.label);
+        })
+        .slice(0, limit);
+
+    return palateData;
+}

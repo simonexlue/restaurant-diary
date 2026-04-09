@@ -6,15 +6,7 @@ import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
 import PalateCard from "../components/home/PalateCard";
 import RecentEntryCard from "../components/home/RecentEntryCard";
-import { getRecentEntries, getHomeFriendsActivity } from "../services/home";
-
-const palateData = [
-    { label: "Japanese", percent: 85 },
-    { label: "Italian", percent: 68 },
-    { label: "French", percent: 45 },
-    { label: "Chinese", percent: 38 },
-    { label: "Nordic", percent: 20 },
-];
+import { getRecentEntries, getHomeFriendsActivity, getHomePalateData } from "../services/home";
 
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile()
@@ -26,7 +18,35 @@ export default function Home() {
     const [friendsActivityLoading, setFriendsActivityLoading] = useState(true);
     const [friendsActivityError, setFriendsActivityError] = useState("");
 
+    const [palateData, setPalateData] = useState([]);
+    const [palateLoading, setPalateLoading] = useState(true);
+    const [palateError, setPalateError] = useState("");
+
     const navigate = useNavigate();
+
+    useEffect(() => {
+        async function loadPalateData() {
+            if (!profile?.id) {
+                setPalateLoading(false);
+                return;
+            }
+
+            try {
+                setPalateLoading(true);
+                setPalateError("");
+
+                const data = await getHomePalateData(profile.id);
+                setPalateData(data);
+            } catch (error) {
+                setPalateError(error.message || "Failed to load palate data");
+                setPalateData([]);
+            } finally {
+                setPalateLoading(false);
+            }
+        }
+
+        loadPalateData();
+    }, [profile?.id]);
 
     useEffect(() => {
         async function loadFriendsActivity() {
@@ -90,8 +110,18 @@ export default function Home() {
                     <p className="text-[rgb(137,122,114)]">{profile?.display_name}</p>
                 </div>
                 <div className="flex flex-row gap-2">
-                    <button className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]">+ Add Entry</button>
-                    <button className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg">Open Map</button>
+                    <button
+                        className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
+                        onClick={() => navigate(`/diary/new`)}
+                    >
+                        + Add Entry
+                    </button>
+                    <button
+                        className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg hover:cursor-pointer"
+                        onClick={() => navigate(`/map`)}
+                    >
+                        Open Map
+                    </button>
                 </div>
             </div>
 
@@ -101,9 +131,21 @@ export default function Home() {
                     <p className="text-[rgb(137,122,114)] text-sm mt-2">YOUR PALATE</p>
                     <p className="text-[rgb(137,122,114)] text-xs">Cuisines you've been loving lately</p>
                     <div className="flex flex-col gap-4 mt-2">
-                        {palateData.map((palate) => (
-                            <PalateCard label={palate.label} percent={palate.percent} />
-                        ))}
+                        {palateLoading ? (
+                            <p className="text-sm text-[rgb(137,122,114)]">Loading palate...</p>
+                        ) : palateError ? (
+                            <p className="text-sm text-red-500">{palateError}</p>
+                        ) : palateData.length === 0 ? (
+                            <p className="text-sm text-[rgb(137,122,114)]">No palate data yet.</p>
+                        ) : (
+                            palateData.map((palate) => (
+                                <PalateCard
+                                    key={palate.label}
+                                    label={palate.label}
+                                    percent={palate.percent}
+                                />
+                            ))
+                        )}
                     </div>
                 </div>
 
