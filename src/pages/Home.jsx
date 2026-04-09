@@ -23,48 +23,12 @@ const palateData = [
     { label: "Nordic", percent: 20 },
 ];
 
-const recentEntries = [
-    {
-        id: "1",
-        restaurantName: "Sukiyabashi Jiro",
-        dishName: "Omakase — 20 Course",
-        rating: 5,
-        tags: ["Japanese", "Omakase"],
-        createdAt: "2026-03-28T18:00:00.000Z",
-        review: "The omakase experience was transcendent. Every piece of sushi was perfection.",
-        location: "Tokyo, Japan",
-        photoUrl: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-        id: "2",
-        restaurantName: "L'Artisan",
-        dishName: "Duck Confit",
-        rating: 4.5,
-        tags: ["French"],
-        createdAt: "2026-04-02T09:00:00.000Z",
-        review: "Rich, crispy, and perfectly balanced with the sauce.",
-        location: "Montreal, Canada",
-        photoUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-        id: "3",
-        restaurantName: "Pasta E Basta",
-        dishName: "Truffle Tagliatelle",
-        rating: null,
-        tags: [],
-        createdAt: "2026-04-01T20:00:00.000Z",
-        review: null,
-        location: "Rome, Italy",
-        photoUrl: null,
-    },
-];
-
-
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile()
     const [recentEntries, setRecentEntries] = useState([])
     const [recentEntriesLoading, setRecentEntriesLoading] = useState(true)
     const [recentEntriesError, setRecentEntriesError] = useState("")
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function loadRecentEntries() {
@@ -170,6 +134,10 @@ export default function Home() {
                             location={entry.location}
                             photoUrl={entry.photoUrl}
                             isLast={index === recentEntries.length - 1}
+                            onClick={() => {
+                                if (!entry.restaurantId) return;
+                                navigate(`/restaurant/${entry.restaurantId}`)
+                            }}
                         />
                     ))}
                 </div>
