@@ -3,6 +3,7 @@ import { IoLocationOutline } from "react-icons/io5"
 import { formatDate } from "../../utils/date"
 import { useEffect, useState } from "react";
 import { getProfilePhotoUrl } from "../../services/profile";
+import { useNavigate } from "react-router-dom";
 
 export default function FriendsCard({
     id,
@@ -15,6 +16,7 @@ export default function FriendsCard({
     avatar_url,
 }) {
     const [avatarUrl, setAvatarUrl] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function loadAvatar() {
@@ -30,8 +32,16 @@ export default function FriendsCard({
         loadAvatar();
     }, [avatar_url]);
 
+    function handleOpenProfile() {
+        if (!id) return;
+        navigate(`/profile/${id}`)
+    }
+
     return (
-        <div className="w-full border border-stone-200 rounded-lg shadow-xs bg-white px-4 py-3 flex flex-row items-start gap-3">
+        <div
+            onClick={() => handleOpenProfile()}
+            className="w-full border border-stone-200 rounded-lg shadow-xs bg-white px-4 py-3 flex flex-row items-start gap-3 hover:cursor-pointer"
+        >
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
                 {avatarUrl ? (
                     <img src={avatarUrl} className="h-full w-full object-cover" />

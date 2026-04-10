@@ -150,3 +150,21 @@ function sanitizeFileName(fileName) {
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9.-]/g, "");
 }
+
+export async function getProfileById(userId) {
+    if(!userId) {
+        throw new Error("User id is required")
+    }
+
+    const {data, error} = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single()
+
+    if(error) {
+        throw new Error(error.message || "Failed to load profile")
+    }
+
+    return data
+}

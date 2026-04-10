@@ -34,6 +34,7 @@ export default function App() {
         <Route path="/friends" element={<Friends />} />
         <Route path="/friends/:friendId/restaurants/:id" element={<RestaurantDetails />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
       </Route>
 
     </Routes>

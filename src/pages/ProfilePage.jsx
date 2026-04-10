@@ -1,21 +1,28 @@
 import { MdPeopleOutline } from "react-icons/md"
+import { BsPersonCheckFill, BsFillPersonDashFill, BsFillPersonPlusFill } from "react-icons/bs";
 import { IoPricetagsOutline, IoLocationOutline, IoBookOutline } from "react-icons/io5";
 import { HiOutlinePencil } from "react-icons/hi2";
 import TagPill from "../components/ui/TagPill";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
 import { getUserDiaryRestaurants, getUserDishEntries } from "../services/diary";
-import { getFriendsList } from "../services/friends";
+import {
+    getFriendsList,
+    getFriendshipStatus,
+    sendFriendRequest,
+    removeFriend,
+} from "../services/friends";
 import { getTopTagsFromEntries } from "../utils/tags";
-import { getProfilePhotoUrl } from "../services/profile";
+import { getProfilePhotoUrl, getProfileById } from "../services/profile";
 import EditProfileModal from "../components/profile/EditProfileModal";
 
 export default function ProfilePage() {
     const navigate = useNavigate();
+    const { userId: routeUserId } = useParams();
     const {
-        profile,
+        profile: currentUserProfile,
         user,
         loading: profileLoading,
         errorMessage: profileErrorMessage,
@@ -29,20 +36,34 @@ export default function ProfilePage() {
     const [profilePhotoUrl, setProfilePhotoUrl] = useState(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
+    const [viewedProfile, setViewedProfile] = useState(null);
+    const viewedUserId = routeUserId || user?.id;
+    const isOwnProfile = !routeUserId || routeUserId === user?.id;
+
+    const [friendshipState, setFriendshipState] = useState("pending");
+    const [friendshipLoading, setFriendshipLoading] = useState(false);
+    const [friendshipActionLoading, setFriendshipActionLoading] = useState(false);
+    const [friendshipRequestId, setFriendshipRequestId] = useState(null);
+
     useEffect(() => {
         async function loadProfileData() {
-            if (!user?.id) return;
+            if (!user?.id || !viewedUserId) return;
 
             try {
                 setStatsLoading(true);
                 setStatsError("");
 
+                const profileToShow = isOwnProfile
+                    ? currentUserProfile
+                    : await getProfileById(viewedUserId);
+
                 const [savedRestaurants, entries, friends] = await Promise.all([
-                    getUserDiaryRestaurants(user.id),
-                    getUserDishEntries(user.id),
-                    getFriendsList(user.id),
+                    getUserDiaryRestaurants(viewedUserId),
+                    getUserDishEntries(viewedUserId),
+                    getFriendsList(viewedUserId),
                 ]);
 
+                setViewedProfile(profileToShow);
                 setTotalPlaces(savedRestaurants.length);
                 setTotalEntries(entries.length);
                 setTotalFriends(friends.length);
@@ -55,20 +76,53 @@ export default function ProfilePage() {
         }
 
         loadProfileData();
-    }, [user?.id]);
+    }, [user?.id, viewedUserId, isOwnProfile, currentUserProfile]);
 
     useEffect(() => {
-        async function loadProfilePhoto() {
-            if (!profile?.avatar_url) {
-                setProfilePhotoUrl(null)
+        async function loadFriendshipState() {
+            if (!user?.id || !viewedUserId || isOwnProfile) {
                 return;
             }
 
-            const signedUrl = await getProfilePhotoUrl(profile.avatar_url)
-            setProfilePhotoUrl(signedUrl)
+            try {
+                setFriendshipLoading(true);
+
+                const result = await getFriendshipStatus(user.id, viewedUserId);
+
+                setFriendshipState(result.status);
+                setFriendshipRequestId(result.requestId || null);
+            } catch (error) {
+                console.error("Failed to load friendship status:", error.message);
+                setFriendshipState("not_friends");
+                setFriendshipRequestId(null);
+            } finally {
+                setFriendshipLoading(false);
+            }
         }
+
+        loadFriendshipState();
+    }, [user?.id, viewedUserId, isOwnProfile]);
+
+    useEffect(() => {
+        if (isOwnProfile) {
+            setFriendshipState("self");
+            setFriendshipRequestId(null);
+        }
+    }, [isOwnProfile]);
+
+    useEffect(() => {
+        async function loadProfilePhoto() {
+            if (!viewedProfile?.avatar_url) {
+                setProfilePhotoUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(viewedProfile.avatar_url);
+            setProfilePhotoUrl(signedUrl);
+        }
+
         loadProfilePhoto();
-    }, [profile?.avatar_url])
+    }, [viewedProfile?.avatar_url]);
 
     const topTags = getTopTagsFromEntries(dishEntries, 20);
 
@@ -98,6 +152,39 @@ export default function ProfilePage() {
         }
     }
 
+    async function handleSendFriendRequest() {
+        if (!user?.id || !viewedUserId) return;
+
+        try {
+            setFriendshipActionLoading(true);
+
+            const request = await sendFriendRequest(viewedUserId, user.id);
+            setFriendshipState("pending");
+            setFriendshipRequestId(request?.id || null);
+        } catch (error) {
+            console.error("Failed to send friend request:", error.message);
+        } finally {
+            setFriendshipActionLoading(false);
+        }
+    }
+
+    async function handleRemoveFriend() {
+        if (!user?.id || !viewedUserId) return;
+
+        try {
+            setFriendshipActionLoading(true);
+
+            await removeFriend(user.id, viewedUserId);
+            setFriendshipState("not_friends");
+            setFriendshipRequestId(null);
+            setTotalFriends((prev) => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error("Failed to remove friend:", error.message);
+        } finally {
+            setFriendshipActionLoading(false);
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
 
@@ -105,19 +192,69 @@ export default function ProfilePage() {
             <div className="bg-white relative flex flex-col justify-center items-center p-10 rounded-lg shadow-xs">
 
                 {/* Edit icon */}
-                <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="absolute top-4 right-4 text-stone-500 hover:text-[rgb(203,84,51)] hover:cursor-pointer"
-                >
-                    <HiOutlinePencil />
-                </button>
+                <div className="absolute top-4 right-4">
+                    {isOwnProfile ? (
+                        <button
+                            type="button"
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="text-stone-500 hover:text-[rgb(203,84,51)] hover:cursor-pointer"
+                        >
+                            <HiOutlinePencil />
+                        </button>
+                    ) : (
+                        <div className="flex flex-row items-center gap-2">
+
+                            {friendshipState === "not_friends" && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendFriendRequest}
+                                    className="hover:scale-105 transition hover:cursor-pointer flex items-center justify-center p-2 rounded-full bg-[rgb(203,84,51)] hover:opacity-90"
+                                    disabled={friendshipActionLoading || friendshipLoading}
+                                >
+                                    <BsFillPersonPlusFill className="text-white text-sm" />
+                                </button>
+                            )}
+
+                            {friendshipState === "pending" && (
+                                <button
+                                    type="button"
+                                    className="px-3 py-1 text-xs rounded-full bg-stone-200 text-stone-500 cursor-not-allowed"
+                                    disabled
+                                >
+                                    Pending
+                                </button>
+                            )}
+
+                            {friendshipState === "friends" && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="flex items-center justify-center p-2 rounded-full bg-[rgb(203,84,51)]"
+                                        disabled
+                                    >
+                                        <BsPersonCheckFill className="text-white text-sm" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="hover:scale-105 transition hover:cursor-pointer flex items-center justify-center p-2 rounded-full border border-stone-300 hover:bg-stone-100"
+                                        onClick={handleRemoveFriend}
+                                        disabled={friendshipActionLoading || friendshipLoading}
+                                    >
+                                        <BsFillPersonDashFill className="text-stone-500 text-sm" />
+                                    </button>
+                                </>
+                            )}
+
+                        </div>
+                    )}
+                </div>
 
                 {/* Profile pic */}
                 {profilePhotoUrl ? (
                     <img
                         src={profilePhotoUrl}
-                        alt={`${profile?.display_name || profile?.username || "User"} avatar`}
+                        alt={`${viewedProfile?.display_name || viewedProfile?.username || "User"} avatar`}
                         className="w-20 h-20 rounded-full object-cover"
                     />
                 ) : (
@@ -126,20 +263,22 @@ export default function ProfilePage() {
                 )}
 
                 {/* Name */}
-                <h1 className="text-2xl text-stone-800 font-semibold mt-4">{profile?.display_name || profile?.username || "Unnamed User"}</h1>
+                <h1 className="text-2xl text-stone-800 font-semibold mt-4">
+                    {viewedProfile?.display_name || viewedProfile?.username || "Unnamed User"}
+                </h1>
 
                 {/* Location  */}
-                {profile?.location && (
+                {viewedProfile?.location && (
                     <div className="flex flex-row items-center gap-1 mt-1">
                         <IoLocationOutline className="text-[rgb(137,122,114)] text-sm" />
-                        <p className="text-sm text-[rgb(137,122,114)]">{profile.location}</p>
+                        <p className="text-sm text-[rgb(137,122,114)]">{viewedProfile.location}</p>
                     </div>
                 )}
 
                 {/* Bio */}
-                {profile?.bio && (
+                {viewedProfile?.bio && (
                     <p className="text-sm text-[rgb(137,122,114)] text-center mt-4 max-w-md">
-                        {profile.bio}
+                        {viewedProfile.bio}
                     </p>
                 )}
             </div>
@@ -194,7 +333,7 @@ export default function ProfilePage() {
             {isEditModalOpen && (
                 <EditProfileModal
                     userId={user?.id}
-                    profile={profile}
+                    profile={currentUserProfile}
                     profilePhotoUrl={profilePhotoUrl}
                     onClose={() => setIsEditModalOpen(false)}
                     onSaved={() => window.location.reload()}

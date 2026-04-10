@@ -556,3 +556,104 @@ export async function getFriendsFeed(currentUserId) {
     );
     return feedCardsWithImageUrls;
 }
+
+export async function getFriendshipStatus(currentUserId, viewedUserId) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    if (!viewedUserId) {
+        throw new Error("Viewed user id is required.");
+    }
+
+    if (currentUserId === viewedUserId) {
+        return {
+            status: "self",
+            requestId: null,
+        };
+    }
+
+    const [userOneId, userTwoId] = sortFriendsIds(currentUserId, viewedUserId);
+
+    const { data: friendship, error: friendshipError } = await supabase
+        .from("friendships")
+        .select("id")
+        .eq("user_one_id", userOneId)
+        .eq("user_two_id", userTwoId)
+        .maybeSingle();
+
+    if (friendshipError) {
+        throw friendshipError;
+    }
+
+    if (friendship) {
+        return {
+            status: "friends",
+            requestId: null,
+        };
+    }
+
+    const { data: pendingRequest, error: requestError } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, receiver_id, status")
+        .or(
+            `and(sender_id.eq.${currentUserId},receiver_id.eq.${viewedUserId},status.eq.pending),and(sender_id.eq.${viewedUserId},receiver_id.eq.${currentUserId},status.eq.pending)`
+        )
+        .maybeSingle();
+
+    if (requestError) {
+        throw requestError;
+    }
+
+    if (pendingRequest) {
+        return {
+            status: "pending",
+            requestId: pendingRequest.id,
+            senderId: pendingRequest.sender_id,
+            receiverId: pendingRequest.receiver_id,
+        };
+    }
+
+    return {
+        status: "not_friends",
+        requestId: null,
+    };
+}
+
+export async function removeFriend(currentUserId, viewedUserId) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    if (!viewedUserId) {
+        throw new Error("Viewed user id is required.");
+    }
+
+    const [userOneId, userTwoId] = sortFriendsIds(currentUserId, viewedUserId);
+
+    const { data: existingFriendship, error: findError } = await supabase
+        .from("friendships")
+        .select("id, user_one_id, user_two_id")
+        .eq("user_one_id", userOneId)
+        .eq("user_two_id", userTwoId)
+        .maybeSingle();
+
+    if (findError) {
+        throw findError;
+    }
+
+    if (!existingFriendship) {
+        throw new Error("Friendship not found.");
+    }
+
+    const { error: deleteError } = await supabase
+        .from("friendships")
+        .delete()
+        .eq("id", existingFriendship.id);
+
+    if (deleteError) {
+        throw deleteError;
+    }
+
+    return true;
+}
