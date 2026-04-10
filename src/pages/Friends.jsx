@@ -208,7 +208,6 @@ export default function Friends() {
                     </p>
                 </div>
 
-                {/* Link is temporary to /diary/new until page is created */}
                 <button
                     className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
                     onClick={() => setShowAddFriendModal(true)}

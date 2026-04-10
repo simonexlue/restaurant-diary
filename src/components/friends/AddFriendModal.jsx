@@ -4,13 +4,68 @@ import { MdPeopleOutline } from "react-icons/md";
 import { searchUsers, sendFriendRequest } from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-export default function AddFriendModal({ onClose, currentUserId, onRequestSent, avatar_url }) {
+function SearchUserRow({ user, sendingUserId, onSend }) {
+    const [avatarUrl, setAvatarUrl] = useState(null);
+
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!user?.avatar_url) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(user.avatar_url);
+            setAvatarUrl(signedUrl);
+        }
+
+        loadAvatar();
+    }, [user?.avatar_url]);
+
+    return (
+        <div className="border border-stone-300 rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between">
+            <div className="flex flex-row gap-3 items-center">
+                <div className="h-10 w-10 overflow-hidden rounded-full bg-stone-100">
+                    {avatarUrl ? (
+                        <img
+                            src={avatarUrl}
+                            alt={user.display_name || user.username || "User"}
+                            className="h-full w-full object-cover"
+                        />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                            <MdPeopleOutline />
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    <p className="text-md text-stone-800">
+                        {user.display_name}
+                    </p>
+                    <p className="text-[rgb(137,122,114)] text-xs">
+                        @{user.username}
+                    </p>
+                </div>
+            </div>
+
+            <button
+                type="button"
+                className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
+                disabled={sendingUserId === user.id}
+                onClick={() => onSend(user.id)}
+            >
+                {sendingUserId === user.id ? "Sending..." : "Send"}
+            </button>
+        </div>
+    );
+}
+
+export default function AddFriendModal({ onClose, currentUserId, onRequestSent }) {
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 300);
     const [results, setResults] = useState([])
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState(null);
 
     const [sendingUserId, setSendingUserId] = useState(null)
     const [successMessage, setSuccessMessage] = useState("")
@@ -40,20 +95,6 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent, 
 
         runSearch()
     }, [debouncedSearch, currentUserId])
-
-    useEffect(() => {
-        async function loadAvatar() {
-            if (!avatar_url) {
-                setAvatarUrl(null);
-                return;
-            }
-
-            const signedUrl = await getProfilePhotoUrl(avatar_url);
-            setAvatarUrl(signedUrl);
-        }
-
-        loadAvatar();
-    }, [avatar_url]);
 
     async function handleSendRequest(receiverId) {
         try {
@@ -133,40 +174,12 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent, 
                 ) : (
                     <div className="flex flex-col gap-3">
                         {results.map((user) => (
-                            <div
+                            <SearchUserRow
                                 key={user.id}
-                                className="border border-stone-300 rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between"
-                            >
-                                <div className="flex flex-row gap-3 items-center">
-                                    <div className="h-10 w-10 overflow-hidden rounded-full bg-stone-100">
-                                        {avatarUrl ? (
-                                            <img src={avatarUrl} className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center">
-                                                <MdPeopleOutline />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <p className="text-md text-stone-800">
-                                            {user.display_name}
-                                        </p>
-                                        <p className="text-[rgb(137,122,114)] text-xs">
-                                            @{user.username}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
-                                    disabled={sendingUserId === user.id}
-                                    onClick={() => handleSendRequest(user.id)}
-                                >
-                                    {sendingUserId === user.id ? "Sending..." : "Send"}
-                                </button>
-                            </div>
+                                user={user}
+                                sendingUserId={sendingUserId}
+                                onSend={handleSendRequest}
+                            />
                         ))}
                     </div>
                 )}

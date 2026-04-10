@@ -18,7 +18,6 @@ export default function TopNavigation() {
         { label: "Map", path: "/map" },
         { label: "My Diary", path: "/diary" },
         { label: "Friends", path: "/friends" },
-        { label: "Collections", path: "/collections" },
         { label: "Profile", path: "/profile" },
     ]
 
