@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProfilePhotoUrl } from "../../services/profile";
 import { MdPeopleOutline } from "react-icons/md";
-import { searchUsers, sendFriendRequest } from "../../services/friends";
+import {
+    searchUsers,
+    sendFriendRequest,
+    getRelationshipStatusesForUsers,
+} from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-function SearchUserRow({ user, sendingUserId, onSend, onOpenProfile }) {
+function SearchUserRow({ user, sendingUserId, onSend, onOpenProfile, relationship }) {
     const [avatarUrl, setAvatarUrl] = useState(null);
 
     useEffect(() => {
@@ -21,6 +25,9 @@ function SearchUserRow({ user, sendingUserId, onSend, onOpenProfile }) {
 
         loadAvatar();
     }, [user?.avatar_url]);
+
+    const relationshipState = relationship?.status || "not_friends";
+    const isIncomingPending = relationshipState === "pending" && relationship?.senderId === user.id;
 
     return (
         <div className="rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between hover:bg-[rgb(244,232,215)] hover:cursor-pointer">
@@ -53,14 +60,32 @@ function SearchUserRow({ user, sendingUserId, onSend, onOpenProfile }) {
                 </div>
             </button>
 
-            <button
-                type="button"
-                className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
-                disabled={sendingUserId === user.id}
-                onClick={() => onSend(user.id)}
-            >
-                {sendingUserId === user.id ? "Sending..." : "Send"}
-            </button>
+            {relationshipState === "friends" ? (
+                <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-stone-200 text-stone-500 cursor-not-allowed"
+                    disabled
+                >
+                    Friends
+                </button>
+            ) : relationshipState === "pending" ? (
+                <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-stone-200 text-stone-500 cursor-not-allowed"
+                    disabled
+                >
+                    {isIncomingPending ? "Respond" : "Pending"}
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={sendingUserId === user.id}
+                    onClick={() => onSend(user.id)}
+                >
+                    {sendingUserId === user.id ? "Sending..." : "Send"}
+                </button>
+            )}
         </div>
     );
 }
@@ -74,6 +99,7 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
 
     const [sendingUserId, setSendingUserId] = useState(null)
     const [successMessage, setSuccessMessage] = useState("")
+    const [relationshipStatuses, setRelationshipStatuses] = useState({});
 
     const navigate = useNavigate();
 
@@ -83,6 +109,7 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
                 setResults([]);
                 setErrorMessage("");
                 setLoading(false)
+                setRelationshipStatuses({});
                 return
             }
 
@@ -91,10 +118,17 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
                 setErrorMessage("")
 
                 const users = await searchUsers(debouncedSearch, currentUserId);
-                setResults(users)
+                setResults(users);
+
+                const statuses = await getRelationshipStatusesForUsers(
+                    currentUserId,
+                    users.map((user) => user.id)
+                );
+                setRelationshipStatuses(statuses);
             } catch (error) {
                 setErrorMessage(error.message || "Failed to search users.")
                 setResults([])
+                setRelationshipStatuses({});
             } finally {
                 setLoading(false)
             }
@@ -110,6 +144,16 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
             setSuccessMessage("");
 
             await sendFriendRequest(receiverId, currentUserId);
+
+            setRelationshipStatuses((prev) => ({
+                ...prev,
+                [receiverId]: {
+                    status: "pending",
+                    requestId: null,
+                    senderId: currentUserId,
+                    receiverId,
+                },
+            }));
 
             setSuccessMessage("Friend request sent.");
 
@@ -193,6 +237,7 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
                                 sendingUserId={sendingUserId}
                                 onSend={handleSendRequest}
                                 onOpenProfile={handleOpenProfile}
+                                relationship={relationshipStatuses[user.id]}
                             />
                         ))}
                     </div>

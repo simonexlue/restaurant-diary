@@ -393,14 +393,16 @@ export default function ProfilePage() {
                 )}
             </div>
 
-            <div className="mt-auto border border-red-300 rounded-lg">
-                <button
-                    onClick={handleLogOut}
-                    className="w-full text-center text-red-500 hover:cursor-pointer hover:bg-red-100 pl-4 py-2 rounded-lg"
-                >
-                    Sign Out
-                </button>
-            </div>
+            {isOwnProfile && (
+                <div className="mt-auto border border-red-300 rounded-lg">
+                    <button
+                        onClick={handleLogOut}
+                        className="w-full text-center text-red-500 hover:cursor-pointer hover:bg-red-100 pl-4 py-2 rounded-lg"
+                    >
+                        Sign Out
+                    </button>
+                </div>
+            )}
 
             {isEditModalOpen && (
                 <EditProfileModal

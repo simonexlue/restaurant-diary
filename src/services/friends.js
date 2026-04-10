@@ -657,3 +657,95 @@ export async function removeFriend(currentUserId, viewedUserId) {
 
     return true;
 }
+
+export async function getRelationshipStatusesForUsers(currentUserId, userIds = []) {
+    if (!currentUserId) {
+        throw new Error("Current user id is required.");
+    }
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+        return {};
+    }
+
+    const uniqueUserIds = [...new Set(userIds.filter(Boolean))].filter(
+        (id) => id !== currentUserId
+    );
+
+    if (uniqueUserIds.length === 0) {
+        return {};
+    }
+
+    const statusesByUserId = {};
+
+    for (const userId of uniqueUserIds) {
+        statusesByUserId[userId] = {
+            status: "not_friends",
+            requestId: null,
+            senderId: null,
+            receiverId: null,
+        };
+    }
+
+    const { data: friendshipRows, error: friendshipError } = await supabase
+        .from("friendships")
+        .select("id, user_one_id, user_two_id")
+        .or(
+            uniqueUserIds
+                .map(
+                    (userId) =>
+                        `and(user_one_id.eq.${sortFriendsIds(currentUserId, userId)[0]},user_two_id.eq.${sortFriendsIds(currentUserId, userId)[1]})`
+                )
+                .join(",")
+        );
+
+    if (friendshipError) {
+        throw friendshipError;
+    }
+
+    for (const row of friendshipRows ?? []) {
+        const otherUserId =
+            row.user_one_id === currentUserId ? row.user_two_id : row.user_one_id;
+
+        if (otherUserId) {
+            statusesByUserId[otherUserId] = {
+                status: "friends",
+                requestId: null,
+                senderId: null,
+                receiverId: null,
+            };
+        }
+    }
+
+    const { data: requestRows, error: requestError } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, receiver_id, status")
+        .eq("status", "pending")
+        .or(
+            uniqueUserIds
+                .map(
+                    (userId) =>
+                        `and(sender_id.eq.${currentUserId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUserId})`
+                )
+                .join(",")
+        );
+
+    if (requestError) {
+        throw requestError;
+    }
+
+    for (const row of requestRows ?? []) {
+        const otherUserId =
+            row.sender_id === currentUserId ? row.receiver_id : row.sender_id;
+
+        if (otherUserId && statusesByUserId[otherUserId]?.status !== "friends") {
+            statusesByUserId[otherUserId] = {
+                status: "pending",
+                requestId: row.id,
+                senderId: row.sender_id,
+                receiverId: row.receiver_id,
+            };
+        }
+    }
+
+    return statusesByUserId;
+}
