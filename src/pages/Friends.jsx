@@ -243,6 +243,7 @@ export default function Friends() {
                             <FriendRequestCard
                                 key={request.id}
                                 id={request.id}
+                                senderId={request.sender_profile?.id}
                                 displayName={request.sender_profile?.display_name}
                                 username={request.sender_profile?.username}
                                 requestedAt={request.created_at}

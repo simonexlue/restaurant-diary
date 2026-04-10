@@ -13,6 +13,8 @@ import {
     getFriendshipStatus,
     sendFriendRequest,
     removeFriend,
+    acceptFriendRequest,
+    declineFriendRequest,
 } from "../services/friends";
 import { getTopTagsFromEntries } from "../utils/tags";
 import { getProfilePhotoUrl, getProfileById } from "../services/profile";
@@ -44,6 +46,8 @@ export default function ProfilePage() {
     const [friendshipLoading, setFriendshipLoading] = useState(false);
     const [friendshipActionLoading, setFriendshipActionLoading] = useState(false);
     const [friendshipRequestId, setFriendshipRequestId] = useState(null);
+    const [friendshipSenderId, setFriendshipSenderId] = useState(null);
+    const [friendshipReceiverId, setFriendshipReceiverId] = useState(null);
 
     useEffect(() => {
         async function loadProfileData() {
@@ -91,10 +95,14 @@ export default function ProfilePage() {
 
                 setFriendshipState(result.status);
                 setFriendshipRequestId(result.requestId || null);
+                setFriendshipSenderId(result.senderId || null);
+                setFriendshipReceiverId(result.receiverId || null);
             } catch (error) {
                 console.error("Failed to load friendship status:", error.message);
                 setFriendshipState("not_friends");
                 setFriendshipRequestId(null);
+                setFriendshipSenderId(null);
+                setFriendshipReceiverId(null);
             } finally {
                 setFriendshipLoading(false);
             }
@@ -107,6 +115,8 @@ export default function ProfilePage() {
         if (isOwnProfile) {
             setFriendshipState("self");
             setFriendshipRequestId(null);
+            setFriendshipSenderId(null);
+            setFriendshipReceiverId(null);
         }
     }, [isOwnProfile]);
 
@@ -185,6 +195,46 @@ export default function ProfilePage() {
         }
     }
 
+    async function handleAcceptFriendRequest() {
+        if (!user?.id || !friendshipRequestId) return;
+
+        try {
+            setFriendshipActionLoading(true);
+
+            await acceptFriendRequest(friendshipRequestId, user.id);
+            setFriendshipState("friends");
+            setFriendshipRequestId(null);
+            setFriendshipSenderId(null);
+            setFriendshipReceiverId(null);
+            setTotalFriends((prev) => prev + 1);
+        } catch (error) {
+            console.error("Failed to accept friend request:", error.message);
+        } finally {
+            setFriendshipActionLoading(false);
+        }
+    }
+
+    async function handleDeclineFriendRequest() {
+        if (!user?.id || !friendshipRequestId) return;
+
+        try {
+            setFriendshipActionLoading(true);
+
+            await declineFriendRequest(friendshipRequestId, user.id);
+            setFriendshipState("not_friends");
+            setFriendshipRequestId(null);
+            setFriendshipSenderId(null);
+            setFriendshipReceiverId(null);
+        } catch (error) {
+            console.error("Failed to decline friend request:", error.message);
+        } finally {
+            setFriendshipActionLoading(false);
+        }
+    }
+
+    const isIncomingPendingRequest =
+        friendshipState === "pending" && friendshipSenderId === viewedUserId;
+
     return (
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
 
@@ -216,13 +266,35 @@ export default function ProfilePage() {
                             )}
 
                             {friendshipState === "pending" && (
-                                <button
-                                    type="button"
-                                    className="px-3 py-1 text-xs rounded-full bg-stone-200 text-stone-500 cursor-not-allowed"
-                                    disabled
-                                >
-                                    Pending
-                                </button>
+                                isIncomingPendingRequest ? (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleAcceptFriendRequest}
+                                            disabled={friendshipActionLoading || friendshipLoading}
+                                            className="px-3 py-1 text-xs rounded-lg bg-[rgb(203,84,51)] text-white disabled:opacity-60 disabled:cursor-not-allowed hover:cursor-pointer"
+                                        >
+                                            Accept
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleDeclineFriendRequest}
+                                            disabled={friendshipActionLoading || friendshipLoading}
+                                            className="px-3 py-1 text-xs rounded-lg border border-stone-300 text-stone-600 disabled:opacity-60 disabled:cursor-not-allowed hover:cursor-pointer"
+                                        >
+                                            Decline
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="px-3 py-1 text-xs rounded-full bg-stone-200 text-stone-500 cursor-not-allowed"
+                                        disabled
+                                    >
+                                        Pending
+                                    </button>
+                                )
                             )}
 
                             {friendshipState === "friends" && (

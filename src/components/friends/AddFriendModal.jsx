@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getProfilePhotoUrl } from "../../services/profile";
 import { MdPeopleOutline } from "react-icons/md";
 import { searchUsers, sendFriendRequest } from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-function SearchUserRow({ user, sendingUserId, onSend }) {
+function SearchUserRow({ user, sendingUserId, onSend, onOpenProfile }) {
     const [avatarUrl, setAvatarUrl] = useState(null);
 
     useEffect(() => {
@@ -22,8 +23,12 @@ function SearchUserRow({ user, sendingUserId, onSend }) {
     }, [user?.avatar_url]);
 
     return (
-        <div className="border border-stone-300 rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between">
-            <div className="flex flex-row gap-3 items-center">
+        <div className="rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between hover:bg-[rgb(244,232,215)] hover:cursor-pointer">
+            <button
+                type="button"
+                onClick={() => onOpenProfile(user.id)}
+                className="flex flex-row gap-3 items-center text-left hover:cursor-pointer"
+            >
                 <div className="h-10 w-10 overflow-hidden rounded-full bg-stone-100">
                     {avatarUrl ? (
                         <img
@@ -46,7 +51,7 @@ function SearchUserRow({ user, sendingUserId, onSend }) {
                         @{user.username}
                     </p>
                 </div>
-            </div>
+            </button>
 
             <button
                 type="button"
@@ -69,6 +74,8 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
 
     const [sendingUserId, setSendingUserId] = useState(null)
     const [successMessage, setSuccessMessage] = useState("")
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function runSearch() {
@@ -114,6 +121,12 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
         } finally {
             setSendingUserId(null);
         }
+    }
+
+    function handleOpenProfile(userId) {
+        if (!userId) return;
+        onClose();
+        navigate(`/profile/${userId}`);
     }
 
     return (
@@ -179,6 +192,7 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
                                 user={user}
                                 sendingUserId={sendingUserId}
                                 onSend={handleSendRequest}
+                                onOpenProfile={handleOpenProfile}
                             />
                         ))}
                     </div>

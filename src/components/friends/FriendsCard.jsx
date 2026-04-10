@@ -40,7 +40,7 @@ export default function FriendsCard({
     return (
         <div
             onClick={() => handleOpenProfile()}
-            className="w-full border border-stone-200 rounded-lg shadow-xs bg-white px-4 py-3 flex flex-row items-start gap-3 hover:cursor-pointer"
+            className="w-full border border-stone-200 rounded-lg shadow-xs bg-white px-4 py-3 flex flex-row items-start gap-3 hover:cursor-pointer "
         >
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
                 {avatarUrl ? (

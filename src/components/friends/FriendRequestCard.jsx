@@ -2,9 +2,11 @@ import { MdPeopleOutline } from "react-icons/md"
 import { useEffect, useState } from "react";
 import { getProfilePhotoUrl } from "../../services/profile";
 import { formatTimeAgo } from "../../utils/formatTimeAgo";
+import { useNavigate } from "react-router-dom";
 
 export default function FriendRequestCard({
     id,
+    senderId,
     displayName,
     username,
     mutualCount,
@@ -15,6 +17,7 @@ export default function FriendRequestCard({
     avatar_url,
 }) {
     const [avatarUrl, setAvatarUrl] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function loadAvatar() {
@@ -30,9 +33,18 @@ export default function FriendRequestCard({
         loadAvatar();
     }, [avatar_url]);
 
+    function handleOpenProfile() {
+        if (!senderId) return;
+        navigate(`/profile/${senderId}`);
+    }
+
     return (
         <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
-            <div className="flex flex-row gap-3 items-center">
+            <button
+                type="button"
+                onClick={handleOpenProfile}
+                className="flex flex-row gap-3 items-center text-left hover:cursor-pointer"
+            >
                 <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
                     {avatarUrl ? (
                         <img src={avatarUrl} className="h-full w-full object-cover" />
@@ -43,13 +55,13 @@ export default function FriendRequestCard({
                     )}
                 </div>
 
-                <div >
+                <div>
                     <p className="text-stone-800">{displayName}</p>
                     <p className="text-[rgb(137,122,114)] text-sm">
                         {mutualCount} mutual friends | {formatTimeAgo(requestedAt)}
                     </p>
                 </div>
-            </div>
+            </button>
 
             <div className="flex flex-row gap-3" >
                 <button
