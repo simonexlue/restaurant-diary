@@ -98,7 +98,7 @@ export async function getHomeFriendsActivity(currentUserId, limit = 5) {
         id: friendProfile?.id,
         username: friendProfile?.username,
         displayName: friendProfile?.display_name,
-        avatarUrl: friendProfile?.avatar_url,
+        avatar_url: friendProfile?.avatar_url,
       };
     })
     .filter((friend) => friend.id);
@@ -148,14 +148,15 @@ export async function getHomeFriendsActivity(currentUserId, limit = 5) {
     seenFriendIds.add(row.user_id);
 
     activity.push({
-      id: row.id,
-      friendId: row.user_id,
-      name: friendMap[row.user_id]?.displayName || "Unknown",
-      username: friendMap[row.user_id]?.username || "",
-      recentVisit: row.restaurant?.name || "Unknown restaurant",
-      location: row.restaurant?.address || "",
-      time: row.date_tried || row.created_at,
-      restaurantId: row.restaurant?.id || null,
+    id: row.id,
+    friendId: row.user_id,
+    name: friendMap[row.user_id]?.displayName || "Unknown",
+    username: friendMap[row.user_id]?.username || "",
+    avatar_url: friendMap[row.user_id]?.avatar_url || null,
+    recentVisit: row.restaurant?.name || "Unknown restaurant",
+    location: row.restaurant?.address || "",
+    time: row.date_tried || row.created_at,
+    restaurantId: row.restaurant?.id || null,
     });
   }
 

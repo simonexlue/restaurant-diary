@@ -87,12 +87,6 @@ export default function Friends() {
     }, [profile?.id])
 
     useEffect(() => {
-        async function loadSentRequests() {
-            if (!profile?.id) {
-                return;
-            }
-        }
-
         loadSentRequests();
     }, [profile?.id]);
 
@@ -257,6 +251,7 @@ export default function Friends() {
                                 onAccept={() => handleAcceptRequest(request.id)}
                                 onDecline={() => handleDeclineRequest(request.id)}
                                 actionLoading={actionLoadingId === request.id}
+                                avatar_url={request.sender_profile?.avatar_url}
                             />
                         ))
                     )}
@@ -329,7 +324,7 @@ export default function Friends() {
                                     mutualCount={friend.mutualCount}
                                     recentRestaurant={friend.recentRestaurant}
                                     recentTime={friend.recentTime}
-                                    avatarUrl={friend.avatar_url}
+                                    avatar_url={friend.avatar_url}
                                 />
                             ))}
                         </div>
@@ -397,6 +392,7 @@ export default function Friends() {
                                 status={request.status}
                                 onCancel={() => handleCancelRequest(request.id)}
                                 actionLoading={cancelLoadingId === request.id}
+                                avatar_url={request.receiver_profile?.avatar_url}
                             />
                         ))
                     )}

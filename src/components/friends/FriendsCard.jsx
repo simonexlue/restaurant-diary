@@ -1,6 +1,8 @@
 import { MdPeopleOutline } from "react-icons/md"
 import { IoLocationOutline } from "react-icons/io5"
 import { formatDate } from "../../utils/date"
+import { useEffect, useState } from "react";
+import { getProfilePhotoUrl } from "../../services/profile";
 
 export default function FriendsCard({
     id,
@@ -10,13 +12,34 @@ export default function FriendsCard({
     mutualCount,
     recentRestaurant,
     recentTime,
-    avatarUrl,
+    avatar_url,
 }) {
+    const [avatarUrl, setAvatarUrl] = useState(null);
+
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!avatar_url) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(avatar_url);
+            setAvatarUrl(signedUrl);
+        }
+
+        loadAvatar();
+    }, [avatar_url]);
+
     return (
         <div className="w-full border border-stone-200 rounded-lg shadow-xs bg-white px-4 py-3 flex flex-row items-start gap-3">
-            {/* Profile pic placeholder */}
-            <div className="bg-white rounded-4xl p-3 border border-stone-200">
-                <MdPeopleOutline />
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
+                {avatarUrl ? (
+                    <img src={avatarUrl} className="h-full w-full object-cover" />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <MdPeopleOutline />
+                    </div>
+                )}
             </div>
 
             {/* Name and username */}

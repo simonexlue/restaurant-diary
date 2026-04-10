@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getProfilePhotoUrl } from "../../services/profile";
 import { MdPeopleOutline } from "react-icons/md";
 import { searchUsers, sendFriendRequest } from "../../services/friends";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-export default function AddFriendModal({ onClose, currentUserId, onRequestSent }) {
+export default function AddFriendModal({ onClose, currentUserId, onRequestSent, avatar_url }) {
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 300);
     const [results, setResults] = useState([])
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [avatarUrl, setAvatarUrl] = useState(null);
 
     const [sendingUserId, setSendingUserId] = useState(null)
     const [successMessage, setSuccessMessage] = useState("")
@@ -38,6 +40,20 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
 
         runSearch()
     }, [debouncedSearch, currentUserId])
+
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!avatar_url) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(avatar_url);
+            setAvatarUrl(signedUrl);
+        }
+
+        loadAvatar();
+    }, [avatar_url]);
 
     async function handleSendRequest(receiverId) {
         try {
@@ -122,8 +138,14 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
                                 className="border border-stone-300 rounded-lg px-3 py-4 flex flex-row gap-3 items-center justify-between"
                             >
                                 <div className="flex flex-row gap-3 items-center">
-                                    <div className="bg-orange-200 rounded-4xl p-3">
-                                        <MdPeopleOutline />
+                                    <div className="h-10 w-10 overflow-hidden rounded-full bg-stone-100">
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center">
+                                                <MdPeopleOutline />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div>
@@ -138,7 +160,7 @@ export default function AddFriendModal({ onClose, currentUserId, onRequestSent }
 
                                 <button
                                     type="button"
-                                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]"
+                                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
                                     disabled={sendingUserId === user.id}
                                     onClick={() => handleSendRequest(user.id)}
                                 >

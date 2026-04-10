@@ -177,6 +177,7 @@ export default function Home() {
                                         name={friend.name}
                                         recentVisit={friend.recentVisit}
                                         time={friend.time}
+                                        avatar_url={friend.avatar_url}
                                     />
                                 ))
                             )}

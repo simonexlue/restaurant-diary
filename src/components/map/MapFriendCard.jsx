@@ -1,13 +1,41 @@
 import { MdPeopleOutline } from "react-icons/md";
+import { useEffect, useState } from "react";
+import { getProfilePhotoUrl } from "../../services/profile";
 
 export default function MapFriendCard({ friend, isSelected = false, onClick }) {
+    const [avatarUrl, setAvatarUrl] = useState(null);
+
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!friend?.avatar_url) {
+                setAvatarUrl(null)
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(friend.avatar_url)
+            setAvatarUrl(signedUrl)
+        }
+
+        loadAvatar();
+    }, [friend?.avatar_url])
+
     return (
         <div
             onClick={onClick}
             className={`flex flex-row gap-3 items-center hover:bg-[rgb(245,232,214)] rounded-lg px-2 py-2 ${isSelected ? "bg-[rgb(245,232,214)]" : ""} ${onClick ? "cursor-pointer" : ""}`}
         >
-            <div className="bg-white rounded-4xl p-3 border border-stone-200">
-                <MdPeopleOutline />
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
+                {avatarUrl ? (
+                    <img
+                        src={avatarUrl}
+                        alt={friend?.display_name || friend?.username || "Friend"}
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <MdPeopleOutline />
+                    </div>
+                )}
             </div>
 
             <div className="flex flex-col gap-0">

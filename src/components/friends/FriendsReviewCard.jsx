@@ -2,6 +2,9 @@ import photo from "../../assets/auth-hero.jpg"
 import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
 import { formatDate } from "../../utils/date";
 import { useNavigate } from "react-router-dom";
+import { getProfilePhotoUrl } from "../../services/profile";
+import { useState, useEffect } from "react";
+import { MdPeopleOutline } from "react-icons/md";
 
 export default function FriendsReviewCard({
     id,
@@ -18,6 +21,21 @@ export default function FriendsReviewCard({
     photoUrl,
 }) {
     const navigate = useNavigate()
+    const [avatarUrl, setAvatarUrl] = useState(null);
+
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!userAvatar) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(userAvatar);
+            setAvatarUrl(signedUrl);
+        }
+
+        loadAvatar();
+    }, [userAvatar]);
 
     function renderStars(rating = 0) {
         const fullStars = Math.floor(rating);
@@ -53,7 +71,15 @@ export default function FriendsReviewCard({
 
                 {/* User row */}
                 <div className="flex flex-row gap-2 items-center">
-                    <img src={userAvatar || photo} className="h-6 rounded-4xl" />
+                    <div className="h-6 w-6 overflow-hidden rounded-full">
+                        {avatarUrl ? (
+                            <img src={avatarUrl} className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                                <MdPeopleOutline />
+                            </div>
+                        )}
+                    </div>
                     <p className="text-sm font-medium text-stone-800">{displayName}</p>
                     <p className="text-[rgb(137,122,114)] text-xs ml-2">{formatDate(date)}</p>
                 </div>

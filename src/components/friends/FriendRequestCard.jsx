@@ -1,4 +1,7 @@
 import { MdPeopleOutline } from "react-icons/md"
+import { useEffect, useState } from "react";
+import { getProfilePhotoUrl } from "../../services/profile";
+import { formatTimeAgo } from "../../utils/formatTimeAgo";
 
 export default function FriendRequestCard({
     id,
@@ -9,38 +12,35 @@ export default function FriendRequestCard({
     onAccept,
     onDecline,
     actionLoading,
+    avatar_url,
 }) {
+    const [avatarUrl, setAvatarUrl] = useState(null);
 
-    function formatTimeAgo(dateString) {
-        if (!dateString) {
-            return ""
+    useEffect(() => {
+        async function loadAvatar() {
+            if (!avatar_url) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            const signedUrl = await getProfilePhotoUrl(avatar_url);
+            setAvatarUrl(signedUrl);
         }
 
-        const now = new Date()
-        const past = new Date(dateString);
-        const diffInMs = now - past
-
-        const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-        const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
-        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-
-        if (diffInMinutes < 60) {
-            return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
-        }
-
-        if (diffInHours < 24) {
-            return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
-        }
-
-        return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
-    }
+        loadAvatar();
+    }, [avatar_url]);
 
     return (
         <div className="flex flex-row items-center gap-3 bg-white rounded-lg py-2 shadow-sm justify-between px-5">
             <div className="flex flex-row gap-3 items-center">
-                {/* Profile pic placeholder */}
-                <div className="bg-white rounded-4xl p-3">
-                    <MdPeopleOutline />
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white">
+                    {avatarUrl ? (
+                        <img src={avatarUrl} className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                            <MdPeopleOutline />
+                        </div>
+                    )}
                 </div>
 
                 <div >
