@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+body {
+    font-family: 'DM Sans', sans-serif;
+}
+
 .gm-style .gm-style-iw-chr {
     padding: 8px !important;
     height: 0 !important;
