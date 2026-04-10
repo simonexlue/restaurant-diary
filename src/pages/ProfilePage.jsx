@@ -193,9 +193,11 @@ export default function ProfilePage() {
 
             {isEditModalOpen && (
                 <EditProfileModal
+                    userId={user?.id}
                     profile={profile}
                     profilePhotoUrl={profilePhotoUrl}
                     onClose={() => setIsEditModalOpen(false)}
+                    onSaved={() => window.location.reload()}
                 />
             )}
         </div>
