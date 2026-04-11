@@ -69,10 +69,10 @@ export default function TopNavigation() {
                     ))}
                 </div>
 
-                <div className="hidden lg:flex relative items-center">
+                {/* <div className="hidden lg:flex relative items-center">
                     <IoSearchOutline className="absolute left-3 text-stone-400" />
                     <input type="text" className="bg-[rgb(245,232,214)] rounded-lg px-3 py-2 pl-10 focus:outline-[rgb(203,84,51)] text-sm w-80 placeholder:text-stone-400" placeholder="Search for a restaurant" />
-                </div>
+                </div> */}
 
                 <button
                     type="button"
