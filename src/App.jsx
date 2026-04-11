@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Home from "./pages/Home";
@@ -13,30 +14,33 @@ import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
 
-      {/* Pages with Nav and Protected Routing */}
-      <Route element={
-        <ProtectedRoute>
-          <AppLayout />
-        </ProtectedRoute>
-      }>
+        {/* Pages with Nav and Protected Routing */}
+        <Route element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
 
-        {/* Pages go here */}
-        <Route index element={<Home />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/diary" element={<MyDiary />} />
-        <Route path="/diary/new" element={<CreateDishEntry />} />
-        <Route path="/restaurant/:id" element={<RestaurantDetails />} />
-        <Route path="/friends" element={<Friends />} />
-        <Route path="/friends/:friendId/restaurants/:id" element={<RestaurantDetails />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/profile/:userId" element={<ProfilePage />} />
-      </Route>
+          {/* Pages go here */}
+          <Route index element={<Home />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/diary" element={<MyDiary />} />
+          <Route path="/diary/new" element={<CreateDishEntry />} />
+          <Route path="/restaurant/:id" element={<RestaurantDetails />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/friends/:friendId/restaurants/:id" element={<RestaurantDetails />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
+        </Route>
 
-    </Routes>
+      </Routes>
+      <Analytics />
+    </>
   );
 }
