@@ -10,6 +10,8 @@ import {
     getDishEntriesForRestaurant,
     getDishPhotoUrl,
     deleteDishEntry,
+    getLikeSummaryForEntries,
+    toggleDishEntryLike,
 } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
@@ -19,7 +21,11 @@ export default function RestaurantDetails() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
+    const {
+        user,
+        loading: profileLoading,
+        errorMessage: profileErrorMessage,
+    } = useUserProfile();
 
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
@@ -42,6 +48,42 @@ export default function RestaurantDetails() {
     const canManageEntries = !isFriendView;
 
     const dishesTried = dishEntries.length;
+
+    async function buildEntriesWithAssetsAndLikes(entries, currentUserId) {
+        const likeSummary = await getLikeSummaryForEntries(
+            entries.map((entry) => entry.id),
+            currentUserId
+        );
+
+        const entriesWithAssets = await Promise.all(
+            entries.map(async (entry) => {
+                const likes = likeSummary[entry.id] ?? {
+                    likeCount: 0,
+                    likedByCurrentUser: false,
+                };
+
+                if (!entry.photo_path) {
+                    return {
+                        ...entry,
+                        photoUrl: null,
+                        likeCount: likes.likeCount,
+                        likedByCurrentUser: likes.likedByCurrentUser,
+                    };
+                }
+
+                const photoUrl = await getDishPhotoUrl(entry.photo_path);
+
+                return {
+                    ...entry,
+                    photoUrl,
+                    likeCount: likes.likeCount,
+                    likedByCurrentUser: likes.likedByCurrentUser,
+                };
+            })
+        );
+
+        return entriesWithAssets;
+    }
 
     useEffect(() => {
         if (profileLoading) {
@@ -76,26 +118,13 @@ export default function RestaurantDetails() {
                     getDishEntriesForRestaurant(id, targetUserId),
                 ]);
 
-                const dishEntriesWithPhotoUrls = await Promise.all(
-                    dishEntriesData.map(async (entry) => {
-                        if (!entry.photo_path) {
-                            return {
-                                ...entry,
-                                photoUrl: null,
-                            };
-                        }
-
-                        const photoUrl = await getDishPhotoUrl(entry.photo_path);
-
-                        return {
-                            ...entry,
-                            photoUrl,
-                        };
-                    })
+                const dishEntriesWithExtras = await buildEntriesWithAssetsAndLikes(
+                    dishEntriesData,
+                    user.id
                 );
 
                 setRestaurant(restaurantData);
-                setDishEntries(dishEntriesWithPhotoUrls);
+                setDishEntries(dishEntriesWithExtras);
 
                 if (!isFriendView) {
                     const friendRestaurants = await fetchFriendRestaurantPins(user.id);
@@ -116,34 +145,83 @@ export default function RestaurantDetails() {
     }, [id, targetUserId, user, profileLoading, profileErrorMessage, isFriendView]);
 
     async function refreshRestaurantEntries() {
-        if (!id || !targetUserId) {
+        if (!id || !targetUserId || !user?.id) {
             return;
         }
 
         try {
             const dishEntriesData = await getDishEntriesForRestaurant(id, targetUserId);
+            const dishEntriesWithExtras = await buildEntriesWithAssetsAndLikes(
+                dishEntriesData,
+                user.id
+            );
 
-            const dishEntriesWithPhotoUrls = await Promise.all(
-                dishEntriesData.map(async (entry) => {
-                    if (!entry.photo_path) {
-                        return {
-                            ...entry,
-                            photoUrl: null,
-                        };
+            setDishEntries(dishEntriesWithExtras);
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to refresh dish entries.");
+        }
+    }
+
+    async function handleDeleteEntry(entry) {
+        if (!entry?.id || !user?.id) return;
+
+        const confirmed = window.confirm(
+            `Delete "${entry.dish_name || "this dish entry"}"? This cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            setDeletingEntryId(entry.id);
+            setErrorMessage("");
+
+            await deleteDishEntry({
+                entryId: entry.id,
+                userId: user.id,
+                photoPath: entry.photo_path,
+            });
+
+            setDishEntries((prev) => prev.filter((item) => item.id !== entry.id));
+
+            if (openEntryId === entry.id) {
+                setOpenEntryId(null);
+            }
+
+            if (editingEntryId === entry.id) {
+                setEditingEntryId(null);
+            }
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to delete dish entry.");
+        } finally {
+            setDeletingEntryId(null);
+        }
+    }
+
+    async function handleToggleLike(entryId, isCurrentlyLiked) {
+        if (!user?.id || !entryId) return;
+
+        try {
+            setErrorMessage("");
+
+            await toggleDishEntryLike(entryId, user.id, isCurrentlyLiked);
+
+            setDishEntries((prev) =>
+                prev.map((entry) => {
+                    if (entry.id !== entryId) {
+                        return entry;
                     }
-
-                    const photoUrl = await getDishPhotoUrl(entry.photo_path);
 
                     return {
                         ...entry,
-                        photoUrl,
+                        likedByCurrentUser: !isCurrentlyLiked,
+                        likeCount: isCurrentlyLiked
+                            ? Math.max(0, (entry.likeCount || 0) - 1)
+                            : (entry.likeCount || 0) + 1,
                     };
                 })
             );
-
-            setDishEntries(dishEntriesWithPhotoUrls);
         } catch (error) {
-            setErrorMessage(error.message || "Failed to refresh dish entries.");
+            setErrorMessage(error.message || "Failed to update like.");
         }
     }
 
@@ -212,26 +290,6 @@ export default function RestaurantDetails() {
                 });
         }
     }, [dishEntries, sortBy]);
-
-    async function handleDeleteRestaurant() {
-        if (!user?.id || !restaurant?.id) return;
-
-        const confirmed = window.confirm(
-            "Delete this restaurant and all your entries? This cannot be undone."
-        );
-
-        if (!confirmed) return;
-
-        try {
-            await deleteRestaurantForUser({
-                restaurantId: restaurant.id,
-                userId: user.id,
-            });
-
-        } catch (error) {
-            setErrorMessage(error.message || "Failed to delete restaurant.");
-        }
-    }
 
     const dishesHeading = isFriendView ? `${friendName}'s Dishes` : "Your Dishes";
 
@@ -369,9 +427,16 @@ export default function RestaurantDetails() {
                                         review={entry.review}
                                         tags={entry.tags}
                                         photoUrl={entry.photoUrl}
+                                        likeCount={entry.likeCount || 0}
+                                        likedByCurrentUser={entry.likedByCurrentUser || false}
+                                        onLikeToggle={() =>
+                                            handleToggleLike(entry.id, entry.likedByCurrentUser)
+                                        }
                                         isOpen={openEntryId === entry.id}
                                         onToggle={() =>
-                                            setOpenEntryId((prev) => (prev === entry.id ? null : entry.id))
+                                            setOpenEntryId((prev) =>
+                                                prev === entry.id ? null : entry.id
+                                            )
                                         }
                                         onEdit={
                                             canManageEntries

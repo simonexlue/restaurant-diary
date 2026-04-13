@@ -1,5 +1,5 @@
 import placeholder from "../../assets/auth-hero.jpg"
-import { FaStar, FaRegStar, FaStarHalfAlt } from "react-icons/fa";
+import { FaStar, FaRegStar, FaStarHalfAlt, FaRegHeart, FaRegComment } from "react-icons/fa";
 import TagPill from "../ui/TagPill";
 import { useState } from "react";
 import { LuChevronUp, LuChevronDown } from "react-icons/lu";
@@ -18,6 +18,10 @@ export default function DishCard({
     onToggle,
     onEdit,
     onDelete,
+    isDeleting = false,
+    likeCount = 0,
+    likedByCurrentUser = false,
+    onLikeToggle,
 }) {
     function formatDate(dateString) {
         if (!dateString) {
@@ -67,7 +71,10 @@ export default function DishCard({
                                 <button
                                     type="button"
                                     className="text-md px-2 py-1 text-green-700 hover:cursor-pointer"
-                                    onClick={onEdit}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEdit();
+                                    }}
                                 >
                                     <HiOutlinePencil />
                                 </button>
@@ -76,10 +83,14 @@ export default function DishCard({
                             {onDelete && (
                                 <button
                                     type="button"
-                                    className="text-md px-2 py-1 text-red-400 hover:cursor-pointer"
-                                    onClick={onDelete}
+                                    className="text-md px-2 py-1 text-red-400 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete();
+                                    }}
+                                    disabled={isDeleting}
                                 >
-                                    <GoTrash />
+                                    {isDeleting ? "..." : <GoTrash />}
                                 </button>
                             )}
 
@@ -103,7 +114,7 @@ export default function DishCard({
                     </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-3 flex flex-row justify-between">
                     {Array.isArray(tags) && tags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                             {tags.map((tag) => (
@@ -113,11 +124,36 @@ export default function DishCard({
                     ) : (
                         <p className="text-sm text-stone-400">No tags</p>
                     )}
+                    <div className="flex flex-row text-xs items-center gap-2 text-[rgb(137,122,114)]">
+                        <button
+                            type="button"
+                            onClick={onLikeToggle}
+                            className="flex flex-row gap-1 items-center hover:cursor-pointer"
+                        >
+                            <FaRegHeart className={likedByCurrentUser ? "text-[rgb(203,84,51)]" : ""} />
+                            <p>{likeCount}</p>
+                        </button>
+                        <div className="flex flex-row gap-1 items-center hover:cursor-pointer">
+                            <FaRegComment />
+                            <p>2</p>
+                        </div>
+                    </div>
                 </div>
 
                 {isOpen && (
-                    <div className="text-sm mt-3">
-                        {review || "No notes added."}
+                    <div className="text-sm mt-3 text-stone-800">
+                        <p>{review || "No notes added."}</p>
+                        <button
+                            type="button"
+                            onClick={onLikeToggle}
+                            className={`flex flex-row items-center gap-1 px-4 py-1 rounded-lg mt-2 hover:cursor-pointer transition ${likedByCurrentUser
+                                ? "bg-[rgb(203,84,51)] text-white"
+                                : "bg-stone-200 hover:bg-[rgb(203,84,51)] hover:text-white"
+                                }`}
+                        >
+                            <FaRegHeart />
+                            {likedByCurrentUser ? "Liked" : "Like"}
+                        </button>
                     </div>
                 )}
             </div>

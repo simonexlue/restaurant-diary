@@ -444,3 +444,97 @@ export async function updateDishEntryWithOptionalPhoto({
         throw error;
     }
 }
+
+export async function getLikeSummaryForEntries(entryIds, currentUserId) {
+    if (!Array.isArray(entryIds) || entryIds.length === 0) {
+        return {};
+    }
+
+    const { data, error } = await supabase
+        .from("dish_entry_likes")
+        .select("dish_entry_id, user_id")
+        .in("dish_entry_id", entryIds);
+
+    if (error) {
+        throw error;
+    }
+
+    const summary = {};
+
+    for (const entryId of entryIds) {
+        summary[entryId] = {
+            likeCount: 0,
+            likedByCurrentUser: false,
+        };
+    }
+
+    for (const row of data ?? []) {
+        if (!summary[row.dish_entry_id]) {
+            summary[row.dish_entry_id] = {
+                likeCount: 0,
+                likedByCurrentUser: false,
+            };
+        }
+
+        summary[row.dish_entry_id].likeCount += 1;
+
+        if (row.user_id === currentUserId) {
+            summary[row.dish_entry_id].likedByCurrentUser = true;
+        }
+    }
+
+    return summary;
+}
+
+export async function likeDishEntry(entryId, currentUserId) {
+    if (!entryId) {
+        throw new Error("Dish entry id is required.");
+    }
+
+    if (!currentUserId) {
+        throw new Error("User id is required.");
+    }
+
+    const { error } = await supabase
+        .from("dish_entry_likes")
+        .insert({
+            dish_entry_id: entryId,
+            user_id: currentUserId,
+        });
+
+    if (error) {
+        throw error;
+    }
+
+    return true;
+}
+
+export async function unlikeDishEntry(entryId, currentUserId) {
+    if (!entryId) {
+        throw new Error("Dish entry id is required.");
+    }
+
+    if (!currentUserId) {
+        throw new Error("User id is required.");
+    }
+
+    const { error } = await supabase
+        .from("dish_entry_likes")
+        .delete()
+        .eq("dish_entry_id", entryId)
+        .eq("user_id", currentUserId);
+
+    if (error) {
+        throw error;
+    }
+
+    return true;
+}
+
+export async function toggleDishEntryLike(entryId, currentUserId, isCurrentlyLiked) {
+    if (isCurrentlyLiked) {
+        return unlikeDishEntry(entryId, currentUserId);
+    }
+
+    return likeDishEntry(entryId, currentUserId);
+}
