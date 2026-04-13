@@ -15,6 +15,7 @@ import {
 } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
+import { formatDate } from "../utils/date";
 
 export default function RestaurantDetails() {
     const { id, friendId } = useParams();
@@ -423,7 +424,7 @@ export default function RestaurantDetails() {
                                         dishName={entry.dish_name}
                                         itemRating={entry.item_rating}
                                         price={entry.price}
-                                        dateTried={entry.date_tried}
+                                        dateTried={formatDate(entry.date_tried)}
                                         review={entry.review}
                                         tags={entry.tags}
                                         photoUrl={entry.photoUrl}

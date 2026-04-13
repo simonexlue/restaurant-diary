@@ -23,18 +23,6 @@ export default function DishCard({
     likedByCurrentUser = false,
     onLikeToggle,
 }) {
-    function formatDate(dateString) {
-        if (!dateString) {
-            return "No date";
-        }
-
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-CA", {
-            year: "numeric",
-            month: "short",
-            day: "numeric"
-        })
-    }
 
     function renderStars(rating) {
         const numericRating = Number(rating || 0);
@@ -110,7 +98,7 @@ export default function DishCard({
                         </div>
 
                         <p>{price ? `$${price}` : "No price"}</p>
-                        <p>{formatDate(dateTried)}</p>
+                        <p>{dateTried}</p>
                     </div>
                 </div>
 
