@@ -30,7 +30,7 @@ export default function FriendsActivity({
         <button
             type="button"
             onClick={onClick}
-            className="flex w-full flex-row items-center gap-3 text-left hover:cursor-pointer"
+            className="flex w-full flex-row items-center gap-3 text-left hover:cursor-pointer hover:bg-[rgb(248,245,242)] rounded-lg px-2 py-2 -mx-2"
         >
             <div className="flex flex-row gap-3 items-center">
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-100">

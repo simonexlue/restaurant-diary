@@ -22,8 +22,25 @@ export default function PinModal({
     const rawRating = Number(restaurant.averageRating);
     const rating = isNaN(rawRating) ? null : Math.round(rawRating * 10) / 10;
 
+    const selectedFriend =
+        restaurant.friends?.find((friend) => friend.id === selectedFriendId) || null;
+
+    const fullName =
+        selectedFriend?.display_name ||
+        selectedFriend?.displayName ||
+        selectedFriend?.username ||
+        "Friend";
+
+    const firstName = fullName.split(" ")[0];
+
+    const viewDiaryLabel = selectedFriend
+        ? `View ${firstName}'s Diary`
+        : "View My Diary";
+
     function renderStars(value) {
-        if (value == null) return <p className="text-xs text-[rgb(137,122,114)]">—</p>;
+        if (value == null) {
+            return <p className="text-xs text-[rgb(137,122,114)]">—</p>;
+        }
 
         const stars = [];
 
@@ -31,7 +48,9 @@ export default function PinModal({
             if (value >= i) {
                 stars.push(<FaStar key={i} className="text-[rgb(203,84,51)]" />);
             } else if (value >= i - 0.5) {
-                stars.push(<FaStarHalfAlt key={i} className="text-[rgb(203,84,51)]" />);
+                stars.push(
+                    <FaStarHalfAlt key={i} className="text-[rgb(203,84,51)]" />
+                );
             } else {
                 stars.push(<FaRegStar key={i} className="text-[rgb(203,84,51)]" />);
             }
@@ -40,7 +59,7 @@ export default function PinModal({
         return (
             <div className="flex items-center gap-1">
                 {stars}
-                <span className="text-xs text-[rgb(137,122,114)] ml-1">
+                <span className="ml-1 text-xs text-[rgb(137,122,114)]">
                     {value.toFixed(1)}
                 </span>
             </div>
@@ -48,9 +67,15 @@ export default function PinModal({
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-end bg-black/40 px-4 py-6">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-[rgb(248,245,242)] shadow-xl">
-                <div className="relative h-56 md:h-64 lg:h-56 w-full bg-stone-100">
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-end bg-black/40 px-4 py-6"
+            onClick={onClose}
+        >
+            <div
+                className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-[rgb(248,245,242)] shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="relative h-56 w-full bg-stone-100 md:h-64 lg:h-56">
                     <img src={photo} className="h-full w-full object-cover" />
 
                     <button
@@ -61,7 +86,7 @@ export default function PinModal({
                     </button>
                 </div>
 
-                <div className="px-4 py-3 flex flex-col gap-2">
+                <div className="flex flex-col gap-2 px-4 py-3">
                     <div className="flex flex-col">
                         <p className="text-md text-stone-800">{restaurant.name}</p>
                         <p className="text-xs text-[rgb(137,122,114)]">
@@ -69,8 +94,7 @@ export default function PinModal({
                         </p>
                     </div>
 
-                    {/* ⭐ UPDATED RATING */}
-                    <div className="flex flex-row justify-between items-center">
+                    <div className="flex flex-row items-center justify-between">
                         {renderStars(rating)}
                         <p className="text-xs text-[rgb(137,122,114)]">
                             {currentUserEntryCount} entries
@@ -86,14 +110,18 @@ export default function PinModal({
                     {isFriendView && (
                         <div className="mt-2">
                             <p className="text-xs text-stone-700">Friends who visited</p>
-                            <div className="flex flex-col gap-1 mt-1 mb-3">
+                            <div className="mt-1 mb-3 flex flex-col gap-1">
                                 {friendCount > 0 ? (
                                     restaurant.friends.map((friend) => (
                                         <MapFriendCard
                                             key={friend.id}
                                             friend={friend}
                                             isSelected={selectedFriendId === friend.id}
-                                            onClick={() => onSelectFriend(friend)}
+                                            onClick={() =>
+                                                onSelectFriend(
+                                                    selectedFriendId === friend.id ? null : friend
+                                                )
+                                            }
                                         />
                                     ))
                                 ) : (
@@ -108,15 +136,15 @@ export default function PinModal({
                     <div className={`flex gap-2 ${!isFriendView ? "mt-4" : ""}`}>
                         <button
                             onClick={onAddEntry}
-                            className="w-1/2 mb-4 h-10 rounded-lg bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer border border-stone-200"
+                            className="mb-4 h-10 w-1/2 rounded-lg border border-stone-200 bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer"
                         >
                             Add Entry
                         </button>
                         <button
                             onClick={onViewDiary}
-                            className="w-1/2 mb-4 h-10 rounded-lg bg-white py-2 text-sm text-stone-800 hover:cursor-pointer border border-stone-200"
+                            className="mb-4 h-10 w-1/2 rounded-lg border border-stone-200 bg-white py-2 text-sm text-stone-800 hover:cursor-pointer"
                         >
-                            View Diary
+                            {viewDiaryLabel}
                         </button>
                     </div>
                 </div>
