@@ -178,6 +178,15 @@ export default function Home() {
                                         recentVisit={friend.recentVisit}
                                         time={friend.time}
                                         avatar_url={friend.avatar_url}
+                                        onClick={() => {
+                                            if (!friend.friendId || !friend.restaurantId) return;
+
+                                            navigate(`/friends/${friend.friendId}/restaurants/${friend.restaurantId}`, {
+                                                state: {
+                                                    friendName: friend.name,
+                                                },
+                                            });
+                                        }}
                                     />
                                 ))
                             )}

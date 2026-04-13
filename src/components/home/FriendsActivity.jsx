@@ -1,9 +1,15 @@
-import { MdPeopleOutline } from "react-icons/md"
-import { formatTimeAgo } from "../../utils/formatTimeAgo"
+import { MdPeopleOutline } from "react-icons/md";
+import { formatTimeAgo } from "../../utils/formatTimeAgo";
 import { useState, useEffect } from "react";
 import { getProfilePhotoUrl } from "../../services/profile";
 
-export default function FriendsActivity({ name, recentVisit, time, avatar_url }) {
+export default function FriendsActivity({
+    name,
+    recentVisit,
+    time,
+    avatar_url,
+    onClick,
+}) {
     const [avatarUrl, setAvatarUrl] = useState(null);
 
     useEffect(() => {
@@ -21,9 +27,12 @@ export default function FriendsActivity({ name, recentVisit, time, avatar_url })
     }, [avatar_url]);
 
     return (
-        <div className="flex flex-row items-center gap-3">
+        <button
+            type="button"
+            onClick={onClick}
+            className="flex w-full flex-row items-center gap-3 text-left hover:cursor-pointer"
+        >
             <div className="flex flex-row gap-3 items-center">
-
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-100">
                     {avatarUrl ? (
                         <img
@@ -40,14 +49,13 @@ export default function FriendsActivity({ name, recentVisit, time, avatar_url })
             </div>
 
             <div>
-                <div className="flex flex-row gap-1">
+                <div className="flex flex-row gap-1 flex-wrap">
                     <p className="text-stone-800">{name}</p>
                     <p className="text-[rgb(137,122,114)]">visited</p>
                     <p className="text-[rgb(203,84,51)]">{recentVisit}</p>
                 </div>
                 <p className="text-[rgb(137,122,114)] text-sm">{formatTimeAgo(time)}</p>
             </div>
-        </div>
-
-    )
+        </button>
+    );
 }
