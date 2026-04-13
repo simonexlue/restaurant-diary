@@ -12,6 +12,9 @@ import {
     deleteDishEntry,
     getLikeSummaryForEntries,
     toggleDishEntryLike,
+    getCommentsForEntries,
+    createDishEntryComment,
+    deleteDishEntryComment,
 } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
@@ -50,11 +53,13 @@ export default function RestaurantDetails() {
 
     const dishesTried = dishEntries.length;
 
-    async function buildEntriesWithAssetsAndLikes(entries, currentUserId) {
-        const likeSummary = await getLikeSummaryForEntries(
-            entries.map((entry) => entry.id),
-            currentUserId
-        );
+    async function buildEntriesWithExtras(entries, currentUserId) {
+        const entryIds = entries.map((entry) => entry.id);
+
+        const [likeSummary, commentsByEntry] = await Promise.all([
+            getLikeSummaryForEntries(entryIds, currentUserId),
+            getCommentsForEntries(entryIds),
+        ]);
 
         const entriesWithAssets = await Promise.all(
             entries.map(async (entry) => {
@@ -63,12 +68,16 @@ export default function RestaurantDetails() {
                     likedByCurrentUser: false,
                 };
 
+                const comments = commentsByEntry[entry.id] ?? [];
+
                 if (!entry.photo_path) {
                     return {
                         ...entry,
                         photoUrl: null,
                         likeCount: likes.likeCount,
                         likedByCurrentUser: likes.likedByCurrentUser,
+                        comments,
+                        commentCount: comments.length,
                     };
                 }
 
@@ -79,6 +88,8 @@ export default function RestaurantDetails() {
                     photoUrl,
                     likeCount: likes.likeCount,
                     likedByCurrentUser: likes.likedByCurrentUser,
+                    comments,
+                    commentCount: comments.length,
                 };
             })
         );
@@ -119,7 +130,7 @@ export default function RestaurantDetails() {
                     getDishEntriesForRestaurant(id, targetUserId),
                 ]);
 
-                const dishEntriesWithExtras = await buildEntriesWithAssetsAndLikes(
+                const dishEntriesWithExtras = await buildEntriesWithExtras(
                     dishEntriesData,
                     user.id
                 );
@@ -152,7 +163,7 @@ export default function RestaurantDetails() {
 
         try {
             const dishEntriesData = await getDishEntriesForRestaurant(id, targetUserId);
-            const dishEntriesWithExtras = await buildEntriesWithAssetsAndLikes(
+            const dishEntriesWithExtras = await buildEntriesWithExtras(
                 dishEntriesData,
                 user.id
             );
@@ -291,6 +302,65 @@ export default function RestaurantDetails() {
                 });
         }
     }, [dishEntries, sortBy]);
+
+    async function handleAddComment(entryId, commentText) {
+        if (!user?.id || !entryId) return;
+
+        try {
+            setErrorMessage("");
+
+            const newComment = await createDishEntryComment({
+                entryId,
+                userId: user.id,
+                comment: commentText,
+            });
+
+            setDishEntries((prev) =>
+                prev.map((entry) => {
+                    if (entry.id !== entryId) return entry;
+
+                    const nextComments = [...(entry.comments || []), newComment];
+
+                    return {
+                        ...entry,
+                        comments: nextComments,
+                        commentCount: nextComments.length,
+                    };
+                })
+            );
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to add comment.");
+            throw error;
+        }
+    }
+
+    async function handleDeleteComment(entryId, commentId) {
+        if (!user?.id || !entryId || !commentId) return;
+
+        try {
+            setErrorMessage("");
+
+            await deleteDishEntryComment(commentId, user.id);
+
+            setDishEntries((prev) =>
+                prev.map((entry) => {
+                    if (entry.id !== entryId) return entry;
+
+                    const nextComments = (entry.comments || []).filter(
+                        (comment) => comment.id !== commentId
+                    );
+
+                    return {
+                        ...entry,
+                        comments: nextComments,
+                        commentCount: nextComments.length,
+                    };
+                })
+            );
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to delete comment.");
+        }
+    }
 
     const dishesHeading = isFriendView ? `${friendName}'s Dishes` : "Your Dishes";
 
@@ -450,6 +520,11 @@ export default function RestaurantDetails() {
                                                 : undefined
                                         }
                                         isDeleting={deletingEntryId === entry.id}
+                                        commentCount={entry.commentCount || 0}
+                                        comments={entry.comments || []}
+                                        currentUserId={user?.id}
+                                        onAddComment={(commentText) => handleAddComment(entry.id, commentText)}
+                                        onDeleteComment={(commentId) => handleDeleteComment(entry.id, commentId)}
                                     />
                                 ))}
                             </div>

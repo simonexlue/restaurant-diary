@@ -538,3 +538,150 @@ export async function toggleDishEntryLike(entryId, currentUserId, isCurrentlyLik
 
     return likeDishEntry(entryId, currentUserId);
 }
+
+export async function getCommentsForEntries(entryIds) {
+    if (!Array.isArray(entryIds) || entryIds.length === 0) {
+        return {};
+    }
+
+    const { data: commentsData, error: commentsError } = await supabase
+        .from("dish_entry_comments")
+        .select(`
+            id,
+            dish_entry_id,
+            user_id,
+            comment,
+            created_at,
+            updated_at
+        `)
+        .in("dish_entry_id", entryIds)
+        .order("created_at", { ascending: true });
+
+    if (commentsError) {
+        throw commentsError;
+    }
+
+    const userIds = Array.from(
+        new Set((commentsData ?? []).map((row) => row.user_id).filter(Boolean))
+    );
+
+    let profilesMap = {};
+
+    if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, username, display_name, avatar_url")
+            .in("id", userIds);
+
+        if (profilesError) {
+            throw profilesError;
+        }
+
+        profilesMap = Object.fromEntries(
+            (profilesData ?? []).map((profile) => [profile.id, profile])
+        );
+    }
+
+    const groupedComments = {};
+
+    for (const entryId of entryIds) {
+        groupedComments[entryId] = [];
+    }
+
+    for (const row of commentsData ?? []) {
+        if (!groupedComments[row.dish_entry_id]) {
+            groupedComments[row.dish_entry_id] = [];
+        }
+
+        groupedComments[row.dish_entry_id].push({
+            id: row.id,
+            dish_entry_id: row.dish_entry_id,
+            user_id: row.user_id,
+            comment: row.comment,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            profile: profilesMap[row.user_id] ?? null,
+        });
+    }
+
+    return groupedComments;
+}
+
+export async function createDishEntryComment({ entryId, userId, comment }) {
+    if (!entryId) {
+        throw new Error("Dish entry id is required.");
+    }
+
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    const trimmedComment = comment?.trim();
+
+    if (!trimmedComment) {
+        throw new Error("Comment cannot be empty.");
+    }
+
+    const { data, error } = await supabase
+        .from("dish_entry_comments")
+        .insert({
+            dish_entry_id: entryId,
+            user_id: userId,
+            comment: trimmedComment,
+        })
+        .select(`
+            id,
+            dish_entry_id,
+            user_id,
+            comment,
+            created_at,
+            updated_at
+        `)
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .eq("id", userId)
+        .single();
+
+    if (profileError) {
+        throw profileError;
+    }
+
+    return {
+        id: data.id,
+        dish_entry_id: data.dish_entry_id,
+        user_id: data.user_id,
+        comment: data.comment,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        profile: profileData,
+    };
+}
+
+export async function deleteDishEntryComment(commentId, userId) {
+    if (!commentId) {
+        throw new Error("Comment id is required.");
+    }
+
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    const { error } = await supabase
+        .from("dish_entry_comments")
+        .delete()
+        .eq("id", commentId)
+        .eq("user_id", userId);
+
+    if (error) {
+        throw error;
+    }
+
+    return true;
+}
