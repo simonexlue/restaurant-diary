@@ -30,7 +30,7 @@ export default function CreateDishEntry({
 }) {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams()
+    const [searchParams] = useSearchParams();
     const restaurantId = mode === "create" ? searchParams.get("restaurantId") : null;
     const [searchValue, setSearchValue] = useState("");
     const debouncedSearchValue = useDebouncedValue(searchValue, 350);
@@ -44,6 +44,7 @@ export default function CreateDishEntry({
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [selectingRestaurant, setSelectingRestaurant] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     const [dateSelected, setDateSelected] = useState(undefined);
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -59,14 +60,16 @@ export default function CreateDishEntry({
 
     const [dishName, setDishName] = useState("");
     const [dishPrice, setDishPrice] = useState("");
-    const [dishPrivacy, setDishPrivacy] = useState(null);
+    const [dishPrivacy, setDishPrivacy] = useState("public");
 
     const [rating, setRating] = useState(0);
 
     const [selectedTags, setSelectedTags] = useState([]);
     const [customTagInput, setCustomTagInput] = useState("");
 
-    const [savingEntry, setSavingEntry] = useState(false);
+    const [saveAction, setSaveAction] = useState(null);
+
+    const topMessageRef = useRef(null);
 
     useEffect(() => {
         async function initializeGoogle() {
@@ -187,7 +190,7 @@ export default function CreateDishEntry({
         setReviewInput(initialEntry.review || "");
         setDishName(initialEntry.dish_name || "");
         setDishPrice(initialEntry.price ?? "");
-        setDishPrivacy(initialEntry.privacy || "private");
+        setDishPrivacy(initialEntry.privacy || "public");
         setRating(initialEntry.item_rating || 0);
         setSelectedTags(Array.isArray(initialEntry.tags) ? initialEntry.tags : []);
         setCustomTagInput("");
@@ -196,43 +199,6 @@ export default function CreateDishEntry({
         setPhotoPreviewUrl(initialEntry.photoUrl || "");
         setRemoveExistingPhoto(false);
     }, [mode, initialEntry, initialRestaurant]);
-
-    async function handleSuggestionClick(suggestion) {
-        try {
-            setSelectingRestaurant(true);
-            setErrorMessage("");
-            setSuggestions([]);
-            setShouldFetchSuggestions(false);
-
-            const place = suggestion.placePrediction.toPlace();
-
-            await place.fetchFields({
-                fields: ["id", "displayName", "formattedAddress", "location"],
-            });
-
-            const restaurant = await getOrCreateRestaurantFromGooglePlace(place);
-
-            setSelectedRestaurant(restaurant);
-            setSearchValue(restaurant.name || "");
-            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
-        } catch (error) {
-            console.error(error);
-            setErrorMessage(error.message || "Failed to select restaurant.");
-        } finally {
-            setSelectingRestaurant(false);
-        }
-    }
-
-    function handleClearSelectedRestaurant() {
-        setSelectedRestaurant(null);
-        setSearchValue("");
-        setSuggestions([]);
-        setShouldFetchSuggestions(true);
-
-        if (window.google?.maps?.places) {
-            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
-        }
-    }
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -276,6 +242,55 @@ export default function CreateDishEntry({
 
         prefillRestaurant();
     }, [restaurantId]);
+
+    useEffect(() => {
+        if (!successMessage) return;
+
+        const timeoutId = setTimeout(() => {
+            setSuccessMessage("");
+        }, 2500);
+
+        return () => clearTimeout(timeoutId);
+    }, [successMessage]);
+
+    async function handleSuggestionClick(suggestion) {
+        try {
+            setSelectingRestaurant(true);
+            setErrorMessage("");
+            setSuccessMessage("");
+            setSuggestions([]);
+            setShouldFetchSuggestions(false);
+
+            const place = suggestion.placePrediction.toPlace();
+
+            await place.fetchFields({
+                fields: ["id", "displayName", "formattedAddress", "location"],
+            });
+
+            const restaurant = await getOrCreateRestaurantFromGooglePlace(place);
+
+            setSelectedRestaurant(restaurant);
+            setSearchValue(restaurant.name || "");
+            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+        } catch (error) {
+            console.error(error);
+            setErrorMessage(error.message || "Failed to select restaurant.");
+        } finally {
+            setSelectingRestaurant(false);
+        }
+    }
+
+    function handleClearSelectedRestaurant() {
+        setSelectedRestaurant(null);
+        setSearchValue("");
+        setSuggestions([]);
+        setShouldFetchSuggestions(true);
+        setSuccessMessage("");
+
+        if (window.google?.maps?.places) {
+            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+        }
+    }
 
     function handleDateSelect(date) {
         setDateSelected(date);
@@ -322,6 +337,7 @@ export default function CreateDishEntry({
         }
 
         setErrorMessage("");
+        setSuccessMessage("");
         setPhotoFile(file);
         setRemoveExistingPhoto(false);
 
@@ -398,78 +414,29 @@ export default function CreateDishEntry({
         navigate("/diary");
     }
 
-    async function handleSaveEntry(e) {
-        e.preventDefault();
-        if (savingEntry) return;
-
+    function resetDishFieldsForAnotherEntry() {
         setErrorMessage("");
+        setSuccessMessage("");
 
-        if (!selectedRestaurant) {
-            setErrorMessage("Please select a restaurant.");
-            return;
+        setDishName("");
+        setDishPrice("");
+        setRating(0);
+        setReviewInput("");
+        setSelectedTags([]);
+        setCustomTagInput("");
+
+        setPhotoFile(null);
+        setRemoveExistingPhoto(false);
+
+        if (photoPreviewUrl) {
+            URL.revokeObjectURL(photoPreviewUrl);
         }
 
-        if (!dateSelected) {
-            setErrorMessage("Please select a date visited.");
-            return;
-        }
+        setPhotoPreviewUrl("");
+        setIsDragActive(false);
 
-        if (!dishName.trim()) {
-            setErrorMessage("Please enter a dish name.");
-            return;
-        }
-
-        try {
-            setSavingEntry(true);
-
-            if (!user) {
-                throw new Error("You must be logged in to save an entry.");
-            }
-
-            let savedEntry;
-
-            if (mode === "edit" && initialEntry) {
-                savedEntry = await updateDishEntryWithOptionalPhoto({
-                    entryId: initialEntry.id,
-                    userId: user.id,
-                    restaurantId: selectedRestaurant.id,
-                    dateTried: dateSelected,
-                    dishName,
-                    itemRating: rating || null,
-                    review: reviewInput,
-                    privacy: dishPrivacy || "private",
-                    price: dishPrice,
-                    tags: selectedTags,
-                    photoFile,
-                    existingPhotoPath: initialEntry.photo_path,
-                    removeExistingPhoto,
-                });
-            } else {
-                savedEntry = await createDishEntryWithOptionalPhoto({
-                    userId: user.id,
-                    restaurantId: selectedRestaurant.id,
-                    dateTried: dateSelected,
-                    dishName,
-                    itemRating: rating || null,
-                    review: reviewInput,
-                    privacy: dishPrivacy || "private",
-                    price: dishPrice,
-                    tags: selectedTags,
-                    photoFile,
-                });
-            }
-
-            if (onSuccess) {
-                onSuccess(savedEntry);
-                return;
-            }
-
-            resetForm();
-            navigate(`/restaurant/${selectedRestaurant.id}`);
-        } catch (error) {
-            setErrorMessage(error.message || `Failed to ${mode === "edit" ? "update" : "save"} dish entry`);
-        } finally {
-            setSavingEntry(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     }
 
@@ -499,13 +466,130 @@ export default function CreateDishEntry({
 
         setDishName("");
         setDishPrice("");
-        setDishPrivacy(null);
+        setDishPrivacy("public");
         setRating(0);
         setSelectedTags([]);
         setCustomTagInput("");
+        setRemoveExistingPhoto(false);
+        setSuccessMessage("");
 
         if (window.google?.maps?.places) {
             setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+        }
+    }
+
+    function scrollToTopMessage() {
+        if (topMessageRef.current) {
+            topMessageRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+            return;
+        }
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    }
+
+    async function handleSaveEntry(saveMode = "finish") {
+        if (saveAction) return;
+
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        if (!selectedRestaurant) {
+            setErrorMessage("Please select a restaurant.");
+            scrollToTopMessage();
+            return;
+        }
+
+        if (!dateSelected) {
+            setErrorMessage("Please select a date visited.");
+            scrollToTopMessage();
+            return;
+        }
+
+        if (!dishName.trim()) {
+            setErrorMessage("Please enter a dish name.");
+            scrollToTopMessage();
+            return;
+        }
+
+        if (!rating || rating === 0) {
+            setErrorMessage("Please select a rating.");
+            scrollToTopMessage();
+            return;
+        }
+
+        try {
+            setSaveAction(mode === "edit" ? "edit" : saveMode);
+
+            if (!user) {
+                throw new Error("You must be logged in to save an entry.");
+            }
+
+            let savedEntry;
+
+            if (mode === "edit" && initialEntry) {
+                savedEntry = await updateDishEntryWithOptionalPhoto({
+                    entryId: initialEntry.id,
+                    userId: user.id,
+                    restaurantId: selectedRestaurant.id,
+                    dateTried: dateSelected,
+                    dishName,
+                    itemRating: rating || null,
+                    review: reviewInput,
+                    privacy: dishPrivacy || "public",
+                    price: dishPrice,
+                    tags: selectedTags,
+                    photoFile,
+                    existingPhotoPath: initialEntry.photo_path,
+                    removeExistingPhoto,
+                });
+            } else {
+                savedEntry = await createDishEntryWithOptionalPhoto({
+                    userId: user.id,
+                    restaurantId: selectedRestaurant.id,
+                    dateTried: dateSelected,
+                    dishName,
+                    itemRating: rating || null,
+                    review: reviewInput,
+                    privacy: dishPrivacy || "public",
+                    price: dishPrice,
+                    tags: selectedTags,
+                    photoFile,
+                });
+            }
+
+            if (onSuccess) {
+                onSuccess(savedEntry);
+                return;
+            }
+
+            if (mode === "edit") {
+                navigate(`/restaurant/${selectedRestaurant.id}`);
+                return;
+            }
+
+            if (saveMode === "addAnother") {
+                const restaurantName = selectedRestaurant.name || "this restaurant";
+                resetDishFieldsForAnotherEntry();
+                setSuccessMessage(`Saved entry for ${restaurantName}. Add another dish.`);
+                scrollToTopMessage();
+                return;
+            }
+
+            resetForm();
+            navigate(`/restaurant/${selectedRestaurant.id}`);
+        } catch (error) {
+            setErrorMessage(
+                error.message || `Failed to ${mode === "edit" ? "update" : "save"} dish entry`
+            );
+            scrollToTopMessage();
+        } finally {
+            setSaveAction(null);
         }
     }
 
@@ -546,12 +630,37 @@ export default function CreateDishEntry({
                 <button
                     onClick={handleCancel}
                     type="button"
-                    disabled={savingEntry}
+                    disabled={Boolean(saveAction)}
                     className="text-2xl text-stone-800 hover:cursor-pointer"
-                >x</button>
+                >
+                    x
+                </button>
             </div>
 
-            <form onSubmit={handleSaveEntry} className="flex flex-col gap-6">
+            {(errorMessage || successMessage) && (
+                <div
+                    ref={topMessageRef}
+                    className={`rounded-lg border px-4 py-3 ${errorMessage
+                        ? "border-red-200 bg-red-50"
+                        : "border-green-200 bg-green-50"
+                        }`}
+                >
+                    <p
+                        className={`text-sm ${errorMessage ? "text-red-700" : "text-green-700"
+                            }`}
+                    >
+                        {errorMessage || successMessage}
+                    </p>
+                </div>
+            )}
+
+            <form
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveEntry("finish");
+                }}
+                className="flex flex-col gap-6"
+            >
                 {/* Restaurant */}
                 <div className="bg-white py-6 px-6 rounded-lg border border-stone-200 flex flex-col gap-2">
                     <div className="flex flex-row items-center gap-1.5">
@@ -567,6 +676,7 @@ export default function CreateDishEntry({
                                 onChange={(e) => {
                                     setSearchValue(e.target.value);
                                     setShouldFetchSuggestions(true);
+                                    setSuccessMessage("");
                                 }}
                                 placeholder="Search restaurant..."
                                 className="h-10 w-full rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)]"
@@ -597,8 +707,6 @@ export default function CreateDishEntry({
                     )}
 
                     {selectingRestaurant && <p>Selecting restaurant...</p>}
-
-                    {errorMessage && <p>{errorMessage}</p>}
                 </div>
 
                 {/* Date Visited */}
@@ -722,28 +830,40 @@ export default function CreateDishEntry({
                     <PrivacySelector value={dishPrivacy} onChange={setDishPrivacy} />
                 </div>
 
-                {/* Cancel and Save Buttons */}
-                <div className="flex gap-2">
+                {/* Actions */}
+                <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                         onClick={handleCancel}
                         type="button"
-                        disabled={savingEntry}
-                        className="w-1/2 mb-4 h-10 rounded-md bg-white py-2 text-sm text-stone-800 hover:cursor-pointer border border-stone-200"
+                        disabled={Boolean(saveAction)}
+                        className="w-full sm:w-1/3 mb-4 h-10 rounded-md bg-white py-2 text-sm text-stone-800 hover:cursor-pointer border border-stone-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         Cancel
                     </button>
+
+                    {mode === "create" && (
+                        <button
+                            type="button"
+                            disabled={Boolean(saveAction)}
+                            onClick={() => handleSaveEntry("addAnother")}
+                            className="w-full sm:w-1/3 mb-4 h-10 rounded-md border border-[rgb(203,84,51)] bg-white py-2 text-sm text-[rgb(203,84,51)] hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {saveAction === "addAnother" ? "Saving..." : "Save & Add Another"}
+                        </button>
+                    )}
+
                     <button
                         type="submit"
-                        disabled={savingEntry}
-                        className="w-1/2 mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer"
+                        disabled={Boolean(saveAction)}
+                        className={`w-full ${mode === "create" ? "sm:w-1/3" : "sm:w-2/3"} mb-4 h-10 rounded-md bg-[rgb(203,84,51)] py-2 text-sm text-white hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
                     >
-                        {savingEntry
-                            ? mode === "edit"
+                        {mode === "edit"
+                            ? saveAction === "edit"
                                 ? "Updating..."
-                                : "Saving..."
-                            : mode === "edit"
-                                ? "Update Entry"
-                                : "Save Entry"}
+                                : "Update Entry"
+                            : saveAction === "finish"
+                                ? "Saving..."
+                                : "Save & Finish"}
                     </button>
                 </div>
             </form>
