@@ -25,8 +25,8 @@ export function renderUnifiedMarkers({
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 9,
                 fillColor: restaurant.isSavedByUser
-                    ? "rgb(203,84,51)"
-                    : "#22c55e",
+                    ? "#22c55e"
+                    : "rgb(203,84,51)",
                 fillOpacity: 1,
                 strokeColor: "#ffffff",
                 strokeWeight: 2,
