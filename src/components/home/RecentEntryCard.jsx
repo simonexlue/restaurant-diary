@@ -41,21 +41,23 @@ export default function RecentEntryCard(
                     )}
 
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
-                        <div className="flex flex-row gap-4 items-center">
-                            {primaryTag && (
-                                <p className="bg-[rgb(244,232,215)] rounded-lg text-xs text-stone-800 px-2 py-1">
-                                    {primaryTag}
-                                </p>
-                            )}
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                {primaryTag && (
+                                    <p className="shrink-0 bg-[rgb(244,232,215)] rounded-lg text-xs text-stone-800 px-2 py-1">
+                                        {primaryTag}
+                                    </p>
+                                )}
 
-                            {rating !== null && rating !== undefined && (
-                                <div className="flex items-center gap-1">
-                                    <FaStar className="text-[rgb(203,84,51)]" />
-                                    <p className="text-xs text-[rgb(137,122,114)]">{rating}</p>
-                                </div>
-                            )}
+                                {rating !== null && rating !== undefined && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <FaStar className="text-[rgb(203,84,51)] text-xs" />
+                                        <p className="text-xs text-[rgb(137,122,114)]">{rating}</p>
+                                    </div>
+                                )}
+                            </div>
 
-                            <div className="flex flex-row items-center gap-1">
+                            <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                                 <IoMdTime className="text-[rgb(137,122,114)]" />
                                 <p className="text-xs text-[rgb(137,122,114)]">{timeAgo}</p>
                             </div>

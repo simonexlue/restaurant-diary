@@ -32,15 +32,27 @@ export async function getUserDishEntries(userId) {
         .from("dish_entries")
         .select(`
             id,
+            user_id,
             restaurant_id,
             dish_name,
             date_tried,
             item_rating,
+            review,
+            privacy,
+            price,
             tags,
-            photo_path
+            photo_path,
+            created_at,
+            updated_at,
+            restaurants (
+                id,
+                name,
+                address
+            )
         `)
         .eq("user_id", userId)
-        .order("date_tried", { ascending: false });
+        .order("date_tried", { ascending: false })
+        .order("created_at", { ascending: false });
 
     if (error) {
         console.error("Error fetching dish entries:", error);
@@ -260,31 +272,31 @@ function sanitizeFileName(fileName) {
 }
 
 export async function getDishEntriesForRestaurant(restaurantId, userId) {
-    if(!restaurantId) {
-        throw new Error("Restaurant id is missing.")
+    if (!restaurantId) {
+        throw new Error("Restaurant id is missing.");
     }
 
-    if(!userId) {
-        throw new Error("userId is missing")
+    if (!userId) {
+        throw new Error("userId is missing");
     }
 
-    const { data, error} = await supabase
+    const { data, error } = await supabase
         .from("dish_entries")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .eq("user_id", userId)
-        .order("date_tried", {ascending: false})
-        .order("created_at", {ascending: false})
+        .order("date_tried", { ascending: false })
+        .order("created_at", { ascending: false });
 
-    if(error) {
+    if (error) {
         throw error;
     }
 
-    return data ?? []
+    return data ?? [];
 }
 
 export async function getDishEntryById(entryId, userId) {
-        if (!entryId) {
+    if (!entryId) {
         throw new Error("Dish entry id is missing.");
     }
 

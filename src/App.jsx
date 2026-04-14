@@ -31,6 +31,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/diary" element={<MyDiary />} />
+          <Route path="/diary/:friendId" element={<MyDiary />} />
           <Route path="/diary/new" element={<CreateDishEntry />} />
           <Route path="/restaurant/:id" element={<RestaurantDetails />} />
           <Route path="/friends" element={<Friends />} />

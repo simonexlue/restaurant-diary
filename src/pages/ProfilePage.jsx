@@ -61,14 +61,17 @@ export default function ProfilePage() {
                     ? currentUserProfile
                     : await getProfileById(viewedUserId);
 
-                const [savedRestaurants, entries, friends] = await Promise.all([
-                    getUserDiaryRestaurants(viewedUserId),
+                const [entries, friends] = await Promise.all([
                     getUserDishEntries(viewedUserId),
                     getFriendsList(viewedUserId),
                 ]);
 
+                const uniqueRestaurantIds = new Set(
+                    entries.map((entry) => entry.restaurant_id).filter(Boolean)
+                );
+
                 setViewedProfile(profileToShow);
-                setTotalPlaces(savedRestaurants.length);
+                setTotalPlaces(uniqueRestaurantIds.size);
                 setTotalEntries(entries.length);
                 setTotalFriends(friends.length);
                 setDishEntries(entries);
@@ -232,6 +235,14 @@ export default function ProfilePage() {
         }
     }
 
+    function handlePlacesClick() {
+        if (isOwnProfile) {
+            navigate("/diary")
+        } else {
+            navigate(`/diary/${viewedUserId}`)
+        }
+    }
+
     const isIncomingPendingRequest =
         friendshipState === "pending" && friendshipSenderId === viewedUserId;
 
@@ -363,7 +374,10 @@ export default function ProfilePage() {
                     <p className="text-lg text-stone-800 font-semibold">{totalEntries}</p>
                     <p className="text-sm text-[rgb(137,122,114)]">Entries</p>
                 </div>
-                <div className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1">
+                <div
+                    onClick={() => handlePlacesClick()}
+                    className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1 hover:cursor-pointer hover:border hover:border-[rgb(203,84,51)]"
+                >
                     <IoLocationOutline className="text-[rgb(203,84,51)] text-lg" />
                     <p className="text-lg text-stone-800 font-semibold">{totalPlaces}</p>
                     <p className="text-sm text-[rgb(137,122,114)]">Places</p>

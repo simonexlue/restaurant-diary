@@ -70,12 +70,17 @@ export default function DiaryCard({
     imageUrl,
     onDelete,
     isDeleting,
+    routePath,
 }) {
     const navigate = useNavigate();
 
+    function handleClick() {
+        navigate(routePath);
+    }
+
     return (
         <div
-            onClick={() => navigate(`/restaurant/${id}`)}
+            onClick={() => handleClick()}
             className="h-full flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white hover:cursor-pointer hover:border-[rgb(203,84,51)]"
         >
             {/* IMAGE + DELETE BUTTON */}

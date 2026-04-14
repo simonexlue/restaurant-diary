@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import DiaryCard from "../components/diary/DiaryCard";
 import {
-    getUserDiaryRestaurants,
     getUserDishEntries,
     getDishPhotoUrl,
 } from "../services/diary";
@@ -10,6 +9,7 @@ import { deleteRestaurantForUser } from "../services/restaurant";
 import useUserProfile from "../hooks/useUserProfile";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import TagPill from "../components/ui/TagPill";
+import { getProfileById } from "../services/profile";
 
 function normalizeTags(tags) {
     if (!tags) return [];
@@ -21,111 +21,108 @@ function normalizeTags(tags) {
     return [String(tags).trim()].filter(Boolean);
 }
 
-function buildDiaryCards(savedRestaurants, dishEntries) {
+function buildDiaryCardsFromEntries(dishEntries) {
     const entriesByRestaurantId = new Map();
 
     for (const entry of dishEntries) {
+        if (!entry?.restaurant_id || !entry?.restaurants) continue;
+
         const existingEntries = entriesByRestaurantId.get(entry.restaurant_id) || [];
         existingEntries.push(entry);
         entriesByRestaurantId.set(entry.restaurant_id, existingEntries);
     }
 
-    return savedRestaurants
-        .map((savedRestaurant) => {
-            const restaurant = savedRestaurant.restaurants;
-            if (!restaurant) return null;
+    return Array.from(entriesByRestaurantId.entries()).map(([restaurantId, entries]) => {
+        const restaurant = entries[0]?.restaurants;
 
-            const entries = entriesByRestaurantId.get(savedRestaurant.restaurant_id) || [];
+        const sortedEntries = [...entries].sort((a, b) => {
+            if (!a.date_tried) return 1;
+            if (!b.date_tried) return -1;
+            return b.date_tried.localeCompare(a.date_tried);
+        });
 
-            const sortedEntries = [...entries].sort((a, b) => {
-                if (!a.date_tried) return 1;
-                if (!b.date_tried) return -1;
-                return b.date_tried.localeCompare(a.date_tried);
-            });
+        let averageRating = null;
 
-            let averageRating = null;
+        const entriesWithRatings = entries.filter(
+            (entry) =>
+                entry.item_rating !== null &&
+                entry.item_rating !== undefined &&
+                !Number.isNaN(Number(entry.item_rating))
+        );
 
-            const entriesWithRatings = entries.filter(
-                (entry) =>
-                    entry.item_rating !== null &&
-                    entry.item_rating !== undefined &&
-                    !Number.isNaN(Number(entry.item_rating))
+        if (entriesWithRatings.length > 0) {
+            const totalRating = entriesWithRatings.reduce(
+                (sum, entry) => sum + Number(entry.item_rating),
+                0
             );
 
-            if (entriesWithRatings.length > 0) {
-                const totalRating = entriesWithRatings.reduce(
-                    (sum, entry) => sum + Number(entry.item_rating),
-                    0
-                );
+            averageRating = totalRating / entriesWithRatings.length;
+        }
 
-                averageRating = totalRating / entriesWithRatings.length;
+        const tagCounts = new Map();
+        let topTag = null;
+
+        for (const entry of entries) {
+            const entryTags = normalizeTags(entry.tags);
+
+            for (const tag of entryTags) {
+                const currentCount = tagCounts.get(tag) || 0;
+                tagCounts.set(tag, currentCount + 1);
+            }
+        }
+
+        if (tagCounts.size > 0) {
+            let highestCount = 0;
+
+            for (const count of tagCounts.values()) {
+                if (count > highestCount) {
+                    highestCount = count;
+                }
             }
 
-            const tagCounts = new Map();
-            let topTag = null;
+            const mostCommonTags = [];
 
-            for (const entry of entries) {
-                const entryTags = normalizeTags(entry.tags);
-
-                for (const tag of entryTags) {
-                    const currentCount = tagCounts.get(tag) || 0;
-                    tagCounts.set(tag, currentCount + 1);
+            for (const [tag, count] of tagCounts.entries()) {
+                if (count === highestCount) {
+                    mostCommonTags.push(tag);
                 }
             }
 
-            if (tagCounts.size > 0) {
-                let highestCount = 0;
+            if (mostCommonTags.length === 1) {
+                topTag = mostCommonTags[0];
+            } else {
+                for (const entry of sortedEntries) {
+                    const entryTags = normalizeTags(entry.tags);
 
-                for (const count of tagCounts.values()) {
-                    if (count > highestCount) {
-                        highestCount = count;
-                    }
-                }
-
-                const mostCommonTags = [];
-
-                for (const [tag, count] of tagCounts.entries()) {
-                    if (count === highestCount) {
-                        mostCommonTags.push(tag);
-                    }
-                }
-
-                if (mostCommonTags.length === 1) {
-                    topTag = mostCommonTags[0];
-                } else {
-                    for (const entry of sortedEntries) {
-                        const entryTags = normalizeTags(entry.tags);
-
-                        for (const tag of entryTags) {
-                            if (mostCommonTags.includes(tag)) {
-                                topTag = tag;
-                                break;
-                            }
+                    for (const tag of entryTags) {
+                        if (mostCommonTags.includes(tag)) {
+                            topTag = tag;
+                            break;
                         }
-
-                        if (topTag) break;
                     }
+
+                    if (topTag) break;
                 }
             }
+        }
 
-            const recentPhoto =
-                sortedEntries.find((entry) => entry.photo_path)?.photo_path || null;
+        const recentPhoto =
+            sortedEntries.find((entry) => entry.photo_path)?.photo_path || null;
 
-            const allTags = Array.from(tagCounts.keys());
+        const allTags = Array.from(tagCounts.keys());
 
-            return {
-                id: restaurant.id,
-                name: restaurant.name,
-                address: restaurant.address || "No address provided",
-                entryCount: entries.length,
-                lastVisited: sortedEntries[0]?.date_tried || null,
-                averageRating,
-                topTag,
-                recentPhoto,
-                allTags,
-            };
-        })
-        .filter(Boolean);
+        return {
+            id: restaurantId,
+            name: restaurant?.name || "Unnamed Restaurant",
+            address: restaurant?.address || "No address provided",
+            entryCount: entries.length,
+            lastVisited: sortedEntries[0]?.date_tried || null,
+            averageRating,
+            topTag,
+            recentPhoto,
+            allTags,
+        };
+    });
 }
 
 function buildAllUniqueTags(dishEntries) {
@@ -144,6 +141,7 @@ function buildAllUniqueTags(dishEntries) {
 
 export default function MyDiary() {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
+    const { friendId } = useParams();
 
     const [searchRestaurant, setSearchRestaurant] = useState("");
     const [sortOption, setSortOption] = useState("latest");
@@ -155,13 +153,17 @@ export default function MyDiary() {
     const [tagsExpanded, setTagsExpanded] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
     const [deletingRestaurantId, setDeletingRestaurantId] = useState(null);
+    const [viewedDisplayName, setViewedDisplayName] = useState("");
 
     const tagsContainerRef = useRef(null);
 
+    const diaryUserId = friendId || user?.id;
+    const isOwnDiary = !friendId || friendId === user?.id;
+
     useEffect(() => {
-        if (!user) return;
+        if (!user || !diaryUserId) return;
         fetchDiaryData();
-    }, [user]);
+    }, [user, diaryUserId]);
 
     useEffect(() => {
         const container = tagsContainerRef.current;
@@ -173,19 +175,39 @@ export default function MyDiary() {
         setShowExpandButton(container.scrollHeight > container.clientHeight + 2);
     }, [allTags, tagsExpanded]);
 
+    useEffect(() => {
+        async function loadViewedProfileName() {
+            if (isOwnDiary) {
+                setViewedDisplayName("");
+                return;
+            }
+
+            if (!friendId) return;
+
+            try {
+                const profile = await getProfileById(friendId);
+                setViewedDisplayName(
+                    profile?.display_name || profile?.username || ""
+                );
+            } catch (error) {
+                console.error("Failed to load viewed profile name:", error.message);
+                setViewedDisplayName("");
+            }
+        }
+
+        loadViewedProfileName();
+    }, [friendId, isOwnDiary]);
+
     async function fetchDiaryData() {
-        if (!user) return;
+        if (!user || !diaryUserId) return;
 
         setLoading(true);
         setErrorMessage("");
 
         try {
-            const [savedRestaurants, dishEntries] = await Promise.all([
-                getUserDiaryRestaurants(user.id),
-                getUserDishEntries(user.id),
-            ]);
+            const dishEntries = await getUserDishEntries(diaryUserId);
 
-            const diaryCards = buildDiaryCards(savedRestaurants, dishEntries);
+            const diaryCards = buildDiaryCardsFromEntries(dishEntries);
             const uniqueTags = buildAllUniqueTags(dishEntries);
 
             const diaryCardsWithImageUrls = await Promise.all(
@@ -216,7 +238,7 @@ export default function MyDiary() {
     }
 
     async function handleDeleteRestaurant(restaurantId, restaurantName) {
-        if (!user?.id || !restaurantId) return;
+        if (!user?.id || !restaurantId || !isOwnDiary) return;
 
         const confirmed = window.confirm(
             `Delete "${restaurantName}" and all entries in it? This cannot be undone.`
@@ -284,6 +306,8 @@ export default function MyDiary() {
         0
     );
 
+    const firstName = viewedDisplayName.trim().split(" ")[0];
+
     if (profileLoading || loading) {
         return <p>Loading...</p>;
     }
@@ -300,18 +324,22 @@ export default function MyDiary() {
         <div>
             <div className="flex flex-row justify-between items-start">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl text-stone-700">My Diary</h1>
+                    <h1 className="text-3xl text-stone-700">
+                        {isOwnDiary ? "My Diary" : `${firstName || "User"}'s Diary`}
+                    </h1>
                     <p className="text-[rgb(137,122,114)] text-sm">
                         {restaurants.length} restaurants | {totalEntries} entries
                     </p>
                 </div>
 
-                <Link
-                    to="/diary/new"
-                    className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]"
-                >
-                    + New Entry
-                </Link>
+                {isOwnDiary && (
+                    <Link
+                        to="/diary/new"
+                        className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)]"
+                    >
+                        + New Entry
+                    </Link>
+                )}
             </div>
 
             <div className="border border-gray-200 rounded-lg bg-white py-4 px-4 mt-6">
@@ -403,10 +431,17 @@ export default function MyDiary() {
                                     averageRating={restaurant.averageRating}
                                     topTag={restaurant.topTag}
                                     imageUrl={restaurant.imageUrl}
-                                    onDelete={() =>
-                                        handleDeleteRestaurant(restaurant.id, restaurant.name)
+                                    onDelete={
+                                        isOwnDiary
+                                            ? () => handleDeleteRestaurant(restaurant.id, restaurant.name)
+                                            : undefined
                                     }
                                     isDeleting={deletingRestaurantId === restaurant.id}
+                                    routePath={
+                                        isOwnDiary
+                                            ? `/restaurant/${restaurant.id}`
+                                            : `/friends/${friendId}/restaurants/${restaurant.id}`
+                                    }
                                 />
                             </div>
                         ))}
