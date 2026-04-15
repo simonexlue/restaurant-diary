@@ -19,6 +19,7 @@ import {
 import { getTopTagsFromEntries } from "../utils/tags";
 import { getProfilePhotoUrl, getProfileById } from "../services/profile";
 import EditProfileModal from "../components/profile/EditProfileModal";
+import FriendsModal from "../components/profile/FriendsModal";
 
 export default function ProfilePage() {
     const navigate = useNavigate();
@@ -48,6 +49,8 @@ export default function ProfilePage() {
     const [friendshipRequestId, setFriendshipRequestId] = useState(null);
     const [friendshipSenderId, setFriendshipSenderId] = useState(null);
     const [friendshipReceiverId, setFriendshipReceiverId] = useState(null);
+
+    const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
 
     useEffect(() => {
         async function loadProfileData() {
@@ -382,7 +385,10 @@ export default function ProfilePage() {
                     <p className="text-lg text-stone-800 font-semibold">{totalPlaces}</p>
                     <p className="text-sm text-[rgb(137,122,114)]">Places</p>
                 </div>
-                <div className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1">
+                <div
+                    onClick={() => setIsFriendModalOpen(true)}
+                    className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1 hover:cursor-pointer hover:border hover:border-[rgb(203,84,51)]"
+                >
                     <MdPeopleOutline className="text-[rgb(203,84,51)] text-xl" />
                     <p className="text-lg text-stone-800 font-semibold">{totalFriends}</p>
                     <p className="text-sm text-[rgb(137,122,114)]">Friends</p>
@@ -425,6 +431,12 @@ export default function ProfilePage() {
                     profilePhotoUrl={profilePhotoUrl}
                     onClose={() => setIsEditModalOpen(false)}
                     onSaved={() => window.location.reload()}
+                />
+            )}
+
+            {isFriendModalOpen && (
+                <FriendsModal
+                    onClose={() => setIsFriendModalOpen(false)}
                 />
             )}
         </div>
