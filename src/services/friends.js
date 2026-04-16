@@ -243,6 +243,8 @@ export async function acceptFriendRequest(requestId, currentUserId) {
 
     invalidateFriendsPageCaches(receiverId);
     invalidateFriendsPageCaches(senderId);
+    invalidateProfileFriendsListCache(senderId);
+    invalidateProfileFriendsListCache(receiverId);
 
     return true;
 }
@@ -574,6 +576,8 @@ export async function removeFriend(currentUserId, viewedUserId) {
     }
 
     invalidateFriendsPageCaches(currentUserId);
+    invalidateProfileFriendsListCache(currentUserId);
+    invalidateProfileFriendsListCache(viewedUserId);
 
     return true;
 }
@@ -668,4 +672,39 @@ export async function getRelationshipStatusesForUsers(currentUserId, userIds = [
     }
 
     return statusesByUserId;
+}
+
+// For Profile page.
+const profileFriendsListCache = new Map();
+
+export function invalidateProfileFriendsListCache(userId) {
+    if(!userId) {
+        return
+    }
+
+    profileFriendsListCache.delete(String(userId))
+}
+
+export async function getProfileFriendsList(viewedUserId, options = {}) {
+    if(!viewedUserId) { 
+        throw new Error("Viewed user id is required")
+    }
+
+    const {forceRefresh = false} = options
+    const cacheKey = String(viewedUserId)
+
+    if(!forceRefresh && profileFriendsListCache.has(cacheKey)) {
+        return profileFriendsListCache.get(cacheKey)
+    }
+    const {data, error} = await supabase.rpc("get_profile_friends_list", {
+        target_user_id: viewedUserId
+    })
+
+    if(error) {
+        throw error
+    }
+    const finalData = data ?? []
+    profileFriendsListCache.set(cacheKey, finalData)
+
+    return finalData
 }

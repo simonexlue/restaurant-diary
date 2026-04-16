@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 import useUserProfile from "../hooks/useUserProfile";
 import { getUserDiaryRestaurants, getUserDishEntries } from "../services/diary";
 import {
-    getFriendsList,
+    getProfileFriendsList,
     getFriendshipStatus,
     sendFriendRequest,
     removeFriend,
@@ -66,7 +66,7 @@ export default function ProfilePage() {
 
                 const [entries, friends] = await Promise.all([
                     getUserDishEntries(viewedUserId),
-                    getFriendsList(viewedUserId),
+                    getProfileFriendsList(viewedUserId),
                 ]);
 
                 const uniqueRestaurantIds = new Set(
@@ -437,6 +437,9 @@ export default function ProfilePage() {
             {isFriendModalOpen && (
                 <FriendsModal
                     onClose={() => setIsFriendModalOpen(false)}
+                    viewedUserId={viewedUserId}
+                    currentUserId={user?.id}
+                    isOwnProfile={isOwnProfile}
                 />
             )}
         </div>

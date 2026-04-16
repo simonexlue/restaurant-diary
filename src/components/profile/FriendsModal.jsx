@@ -1,23 +1,89 @@
 import { useEffect, useState } from "react";
 import { IoMdClose } from "react-icons/io";
 import FriendProfileCard from "./FriendProfileCard";
-
-const friendsDummy = [
-    { displayName: "Sydney Chu", userName: "sydknee" }, //Avatar URL to be included
-    { displayName: "Jodi Tabuchi", userName: "jtabuchi" }, //Avatar URL to be included
-    { displayName: "Jane Doe", userName: "jdoe123" }, //Avatar URL to be included
-]
+import { useNavigate } from "react-router-dom";
+import { getProfileFriendsList, removeFriend } from "../../services/friends";
 
 export default function FriendsModal({
     onClose,
+    viewedUserId,
+    isOwnProfile,
+    currentUserId,
 }) {
+    const navigate = useNavigate();
     const [searchFriend, setSearchFriend] = useState("")
     const [filteredFriends, setFilteredFriends] = useState([])
+    const [friends, setFriends] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [errorMessage, setErrorMessage] = useState("")
+    const [removingFriendId, setRemovingFriendId] = useState(null)
+
 
     useEffect(() => {
-        const filteredList = friendsDummy.filter((friend) => (friend.displayName.toLowerCase().includes(searchFriend.toLowerCase())) || (friend.userName).toLowerCase().includes(searchFriend.toLowerCase()))
+        async function loadFriends() {
+            if (!viewedUserId) return;
+
+            try {
+                setLoading(true)
+                setErrorMessage("")
+
+                const data = await getProfileFriendsList(viewedUserId)
+                setFriends(data || [])
+                setFilteredFriends(data || [])
+            } catch (error) {
+                setErrorMessage(error.message || "Failed to load friends");
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadFriends()
+    }, [viewedUserId])
+
+    useEffect(() => {
+        const search = searchFriend.trim().toLowerCase()
+        if (!search) {
+            setFilteredFriends(friends)
+            return
+        }
+
+        const filteredList = friends.filter((friend) =>
+            (friend.displayName?.toLowerCase() || "").includes(search) ||
+            (friend.username?.toLowerCase() || "").includes(search)
+        )
+
         setFilteredFriends(filteredList)
-    }, [searchFriend])
+    }, [searchFriend, friends])
+
+    async function handleRemoveFriend(friendId) {
+        if (!currentUserId || !friendId) return;
+
+        try {
+            setRemovingFriendId(friendId)
+            setErrorMessage("")
+
+            await removeFriend(currentUserId, friendId)
+            const updatedFriends = friends.filter((friend) => friend.id !== friendId)
+            setFriends(updatedFriends)
+            setFilteredFriends(updatedFriends)
+        } catch (error) {
+            setErrorMessage(error.message || "Failed to remove friend.")
+        } finally {
+            setRemovingFriendId(null)
+        }
+    }
+
+    function handleFriendClick(friendId) {
+        if (!friendId) return;
+
+        onClose();
+
+        if (friendId === currentUserId) {
+            navigate("/profile");
+        } else {
+            navigate(`/profile/${friendId}`);
+        }
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6 py-6">
@@ -41,9 +107,35 @@ export default function FriendsModal({
                     className="border border-stone-200 rounded-lg w-full px-3 py-1 bg-[rgb(248,245,242)] text-sm focus:outline-[rgb(203,84,51)]"
                 />
 
-                {filteredFriends.map((friend) => (
-                    <div>
-                        <FriendProfileCard displayName={friend.displayName} username={friend.userName} />
+                {loading && (
+                    <p className="mt-4 text-sm text-[rgb(137,122,114)]">
+                        Loading friends...
+                    </p>
+                )}
+
+                {!loading && errorMessage && (
+                    <p className="mt-4 text-sm text-red-500">
+                        {errorMessage}
+                    </p>
+                )}
+
+                {!loading && !errorMessage && filteredFriends.length === 0 && (
+                    <p className="mt-4 text-sm text-[rgb(137,122,114)]">
+                        No friends found.
+                    </p>
+                )}
+
+                {!loading && !errorMessage && filteredFriends.map((friend) => (
+                    <div key={friend.id}>
+                        <FriendProfileCard
+                            displayName={friend.display_name}
+                            username={friend.username}
+                            avatar_url={friend.avatar_url}
+                            showRemoveButton={isOwnProfile}
+                            onRemove={() => handleRemoveFriend(friend.id)}
+                            removeLoading={removingFriendId === friend.id}
+                            onClick={() => handleFriendClick(friend.id)}
+                        />
                     </div>
                 ))}
             </div>
