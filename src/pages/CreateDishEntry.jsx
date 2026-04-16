@@ -6,6 +6,7 @@ import { createDishEntryWithOptionalPhoto, updateDishEntryWithOptionalPhoto } fr
 import { useNavigate } from "react-router-dom";
 import useUserProfile from "../hooks/useUserProfile";
 import { useSearchParams } from "react-router-dom";
+import { invalidateHomePersonalCaches } from "../services/home";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
@@ -562,6 +563,8 @@ export default function CreateDishEntry({
                     photoFile,
                 });
             }
+
+            invalidateHomePersonalCaches(user.id);
 
             if (onSuccess) {
                 onSuccess(savedEntry);

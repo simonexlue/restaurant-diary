@@ -1,28 +1,79 @@
 import { supabase } from "../lib/supabase";
 import { getDishPhotoUrl } from "./diary";
 
-export async function getRecentEntries(userId, limit = 5) {
+/*
+  Personal Home data cache:
+  - recent entries
+  - palate
+*/
+
+const recentEntriesCache = new Map();
+const palateCache = new Map();
+
+function makeCacheKey(userId, limit) {
+  return `${userId}-${limit}`;
+}
+
+export function invalidateRecentEntriesCache(userId) {
+  if (!userId) {
+    recentEntriesCache.clear();
+    return;
+  }
+
+  for (const key of recentEntriesCache.keys()) {
+    if (key.startsWith(`${userId}-`)) {
+      recentEntriesCache.delete(key);
+    }
+  }
+}
+
+export function invalidatePalateCache(userId) {
+  if (!userId) {
+    palateCache.clear();
+    return;
+  }
+
+  for (const key of palateCache.keys()) {
+    if (key.startsWith(`${userId}-`)) {
+      palateCache.delete(key);
+    }
+  }
+}
+
+export function invalidateHomePersonalCaches(userId) {
+  invalidateRecentEntriesCache(userId);
+  invalidatePalateCache(userId);
+}
+
+export async function getRecentEntries(userId, limit = 5, options = {}) {
   if (!userId) {
     throw new Error("User id is required");
+  }
+
+  const { forceRefresh = false } = options;
+  const cacheKey = makeCacheKey(userId, limit);
+
+  if (!forceRefresh && recentEntriesCache.has(cacheKey)) {
+    return recentEntriesCache.get(cacheKey);
   }
 
   const { data, error } = await supabase
     .from("dish_entries")
     .select(
       `
-            id,
-            dish_name,
-            restaurant_id,
-            item_rating,
-            tags,
-            review,
-            photo_path,
-            created_at,
-            restaurants (
-                name,
-                address
-            )
-        `,
+        id,
+        dish_name,
+        restaurant_id,
+        item_rating,
+        tags,
+        review,
+        photo_path,
+        created_at,
+        restaurants (
+          name,
+          address
+        )
+      `,
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -54,6 +105,7 @@ export async function getRecentEntries(userId, limit = 5) {
     }),
   );
 
+  recentEntriesCache.set(cacheKey, entriesWithPhotoUrls);
   return entriesWithPhotoUrls;
 }
 
@@ -80,7 +132,18 @@ export async function getHomeFriendsActivity(limit = 5) {
   }));
 }
 
-export async function getHomePalateData(limit = 5) {
+export async function getHomePalateData(userId, limit = 5, options = {}) {
+  if (!userId) {
+    throw new Error("User id is required");
+  }
+
+  const { forceRefresh = false } = options;
+  const cacheKey = makeCacheKey(userId, limit);
+
+  if (!forceRefresh && palateCache.has(cacheKey)) {
+    return palateCache.get(cacheKey);
+  }
+
   const { data, error } = await supabase.rpc("get_home_palate_data", {
     p_limit: limit,
   });
@@ -90,5 +153,7 @@ export async function getHomePalateData(limit = 5) {
     throw error;
   }
 
-  return data || [];
+  const result = data || [];
+  palateCache.set(cacheKey, result);
+  return result;
 }

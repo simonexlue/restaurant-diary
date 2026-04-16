@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
-import { MdPeopleOutline } from "react-icons/md"
+import { MdPeopleOutline } from "react-icons/md";
 import useUserProfile from "../hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
 import FriendsActivity from "../components/home/FriendsActivity";
 import PalateCard from "../components/home/PalateCard";
 import RecentEntryCard from "../components/home/RecentEntryCard";
-import { getRecentEntries, getHomeFriendsActivity, getHomePalateData } from "../services/home";
+import {
+    getRecentEntries,
+    getHomeFriendsActivity,
+    getHomePalateData,
+} from "../services/home";
 
 export default function Home() {
-    const { profile, loading, errorMessage } = useUserProfile()
-    const [recentEntries, setRecentEntries] = useState([])
-    const [recentEntriesLoading, setRecentEntriesLoading] = useState(true)
-    const [recentEntriesError, setRecentEntriesError] = useState("")
+    const { profile, loading, errorMessage } = useUserProfile();
+    const [recentEntries, setRecentEntries] = useState([]);
+    const [recentEntriesLoading, setRecentEntriesLoading] = useState(true);
+    const [recentEntriesError, setRecentEntriesError] = useState("");
 
     const [friendsActivity, setFriendsActivity] = useState([]);
     const [friendsActivityLoading, setFriendsActivityLoading] = useState(true);
@@ -34,7 +38,7 @@ export default function Home() {
                 setPalateLoading(true);
                 setPalateError("");
 
-                const data = await getHomePalateData();
+                const data = await getHomePalateData(profile.id);
                 setPalateData(data);
             } catch (error) {
                 setPalateError(error.message || "Failed to load palate data");
@@ -74,31 +78,33 @@ export default function Home() {
     useEffect(() => {
         async function loadRecentEntries() {
             if (!profile?.id) {
-                setRecentEntriesLoading(false)
+                setRecentEntriesLoading(false);
                 return;
             }
 
             try {
-                setRecentEntriesLoading(true)
-                setRecentEntriesError("")
+                setRecentEntriesLoading(true);
+                setRecentEntriesError("");
 
-                const entries = await getRecentEntries(profile.id)
-                setRecentEntries(entries)
+                const entries = await getRecentEntries(profile.id);
+                setRecentEntries(entries);
             } catch (error) {
-                setRecentEntriesError("Failed to load recent entries")
+                setRecentEntriesError("Failed to load recent entries");
+                setRecentEntries([]);
             } finally {
                 setRecentEntriesLoading(false);
             }
         }
 
         loadRecentEntries();
-    }, [profile?.id])
+    }, [profile?.id]);
 
     if (loading) {
-        return <p>Loading...</p>
+        return <p>Loading...</p>;
     }
+
     if (errorMessage) {
-        return <p>{errorMessage}</p>
+        return <p>{errorMessage}</p>;
     }
 
     return (
@@ -126,7 +132,6 @@ export default function Home() {
 
             <div className="py-3 pb-8 px-6 rounded-lg bg-white shadow-xs">
                 <div className="flex flex-col lg:flex-row lg:items-start">
-                    {/* Palate Section */}
                     <div className="flex-1 flex flex-col gap-2 pt-2">
                         <p className="text-[rgb(137,122,114)] text-sm">YOUR PALATE</p>
                         <p className="text-[rgb(137,122,114)] text-xs">Cuisines you've been loving lately</p>
@@ -150,13 +155,9 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* Mobile divider */}
                     <div className="border-t border-stone-200 my-6 lg:hidden" />
-
-                    {/* Desktop divider */}
                     <div className="hidden lg:block self-stretch w-px bg-stone-200 mx-6" />
 
-                    {/* Friends Activity */}
                     <div className="flex-1 flex flex-col pt-2">
                         <div className="flex flex-row gap-2 items-center mb-4">
                             <MdPeopleOutline className="text-[rgb(137,122,114)]" />
@@ -228,12 +229,12 @@ export default function Home() {
                             isLast={index === recentEntries.length - 1}
                             onClick={() => {
                                 if (!entry.restaurantId) return;
-                                navigate(`/restaurant/${entry.restaurantId}`)
+                                navigate(`/restaurant/${entry.restaurantId}`);
                             }}
                         />
                     ))}
                 </div>
             </div>
         </div>
-    )
+    );
 }

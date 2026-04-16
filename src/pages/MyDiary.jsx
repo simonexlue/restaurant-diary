@@ -10,6 +10,7 @@ import useUserProfile from "../hooks/useUserProfile";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import TagPill from "../components/ui/TagPill";
 import { getProfileById } from "../services/profile";
+import { invalidateHomePersonalCaches } from "../services/home";
 
 function normalizeTags(tags) {
     if (!tags) return [];
@@ -254,6 +255,8 @@ export default function MyDiary() {
                 restaurantId,
                 userId: user.id,
             });
+
+            invalidateHomePersonalCaches(user.id);
 
             await fetchDiaryData();
         } catch (error) {

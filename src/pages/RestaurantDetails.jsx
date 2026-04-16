@@ -19,6 +19,7 @@ import {
 import useUserProfile from "../hooks/useUserProfile";
 import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
 import { formatDate } from "../utils/date";
+import { invalidateHomePersonalCaches } from "../services/home";
 
 export default function RestaurantDetails() {
     const { id, friendId } = useParams();
@@ -192,6 +193,8 @@ export default function RestaurantDetails() {
                 userId: user.id,
                 photoPath: entry.photo_path,
             });
+
+            invalidateHomePersonalCaches(user.id);
 
             setDishEntries((prev) => prev.filter((item) => item.id !== entry.id));
 
