@@ -780,11 +780,8 @@ export async function getMyDiaryCards(userId, options = {}) {
     const cacheKey = makeMyDiaryCardsCacheKey(userId);
 
     if (!forceRefresh && myDiaryCardsCache.has(cacheKey)) {
-        console.log("[MyDiary Cache] cache hit:", userId);
         return myDiaryCardsCache.get(cacheKey);
     }
-
-    console.log("[MyDiary Cache] fetching diary cards:", userId);
 
     const { data, error } = await supabase.rpc("get_my_diary_cards", {
         p_user_id: userId,
@@ -811,4 +808,52 @@ export async function getMyDiaryCards(userId, options = {}) {
 
     myDiaryCardsCache.set(cacheKey, result);
     return result;
+}
+
+export async function getRestaurantDetailEntries({
+    restaurantId,
+    targetUserId,
+    viewerUserId,
+}) {
+    if (!restaurantId) {
+        throw new Error("Restaurant id is missing.");
+    }
+
+    if (!targetUserId) {
+        throw new Error("Target user id is missing.");
+    }
+
+    if (!viewerUserId) {
+        throw new Error("Viewer user id is missing.");
+    }
+
+    const { data, error } = await supabase.rpc("get_restaurant_detail_entries", {
+        p_restaurant_id: restaurantId,
+        p_target_user_id: targetUserId,
+        p_viewer_user_id: viewerUserId,
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    return (data || []).map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        restaurant_id: row.restaurant_id,
+        dish_name: row.dish_name,
+        date_tried: row.date_tried,
+        item_rating: row.item_rating,
+        review: row.review,
+        privacy: row.privacy,
+        price: row.price,
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        photo_path: row.photo_path,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        likeCount: row.like_count || 0,
+        likedByCurrentUser: Boolean(row.liked_by_current_user),
+        comments: Array.isArray(row.comments) ? row.comments : [],
+        commentCount: row.comment_count || 0,
+    }));
 }

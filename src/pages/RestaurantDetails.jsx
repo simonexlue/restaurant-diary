@@ -4,17 +4,16 @@ import { FaRegStar } from "react-icons/fa";
 import { RiBookOpenLine } from "react-icons/ri";
 import { MdPeopleOutline, MdOutlineCalendarToday } from "react-icons/md";
 import DishCard from "../components/restaurant/DishCard";
-import { getRestaurantById, fetchFriendRestaurantPins } from "../services/restaurant";
+import { getRestaurantById, getRestaurantFriendsVisitedCount } from "../services/restaurant";
 import { useEffect, useState, useMemo } from "react";
 import {
-    getDishEntriesForRestaurant,
+    getRestaurantDetailEntries,
     getDishPhotoUrl,
     deleteDishEntry,
-    getLikeSummaryForEntries,
     toggleDishEntryLike,
-    getCommentsForEntries,
     createDishEntryComment,
     deleteDishEntryComment,
+    invalidateMyDiaryCardsCache,
 } from "../services/diary";
 import useUserProfile from "../hooks/useUserProfile";
 import EditDishEntryModal from "../components/restaurant/EditDishEntryModal";
@@ -54,31 +53,13 @@ export default function RestaurantDetails() {
 
     const dishesTried = dishEntries.length;
 
-    async function buildEntriesWithExtras(entries, currentUserId) {
-        const entryIds = entries.map((entry) => entry.id);
-
-        const [likeSummary, commentsByEntry] = await Promise.all([
-            getLikeSummaryForEntries(entryIds, currentUserId),
-            getCommentsForEntries(entryIds),
-        ]);
-
+    async function buildEntriesWithAssets(entries) {
         const entriesWithAssets = await Promise.all(
             entries.map(async (entry) => {
-                const likes = likeSummary[entry.id] ?? {
-                    likeCount: 0,
-                    likedByCurrentUser: false,
-                };
-
-                const comments = commentsByEntry[entry.id] ?? [];
-
                 if (!entry.photo_path) {
                     return {
                         ...entry,
                         photoUrl: null,
-                        likeCount: likes.likeCount,
-                        likedByCurrentUser: likes.likedByCurrentUser,
-                        comments,
-                        commentCount: comments.length,
                     };
                 }
 
@@ -87,10 +68,6 @@ export default function RestaurantDetails() {
                 return {
                     ...entry,
                     photoUrl,
-                    likeCount: likes.likeCount,
-                    likedByCurrentUser: likes.likedByCurrentUser,
-                    comments,
-                    commentCount: comments.length,
                 };
             })
         );
@@ -126,26 +103,32 @@ export default function RestaurantDetails() {
                 setLoading(true);
                 setErrorMessage("");
 
-                const [restaurantData, dishEntriesData] = await Promise.all([
+                const requests = [
                     getRestaurantById(id),
-                    getDishEntriesForRestaurant(id, targetUserId),
-                ]);
-
-                const dishEntriesWithExtras = await buildEntriesWithExtras(
-                    dishEntriesData,
-                    user.id
-                );
-
-                setRestaurant(restaurantData);
-                setDishEntries(dishEntriesWithExtras);
+                    getRestaurantDetailEntries({
+                        restaurantId: id,
+                        targetUserId,
+                        viewerUserId: user.id,
+                    }),
+                ];
 
                 if (!isFriendView) {
-                    const friendRestaurants = await fetchFriendRestaurantPins(user.id);
-                    const matchingRestaurant = friendRestaurants.find(
-                        (item) => String(item.restaurantId) === String(id)
-                    );
+                    requests.push(getRestaurantFriendsVisitedCount(id));
+                }
 
-                    setFriendsVisitedCount(matchingRestaurant?.friends?.length ?? 0);
+                const results = await Promise.all(requests);
+
+                const restaurantData = results[0];
+                const dishEntriesData = results[1];
+                const friendsVisited = !isFriendView ? results[2] : null;
+
+                const dishEntriesWithAssets = await buildEntriesWithAssets(dishEntriesData);
+
+                setRestaurant(restaurantData);
+                setDishEntries(dishEntriesWithAssets);
+
+                if (!isFriendView) {
+                    setFriendsVisitedCount(friendsVisited ?? 0);
                 }
             } catch (error) {
                 setErrorMessage(error.message || "Failed to get restaurant details.");
@@ -155,7 +138,7 @@ export default function RestaurantDetails() {
         }
 
         loadRestaurant();
-    }, [id, targetUserId, user, profileLoading, profileErrorMessage, isFriendView]);
+    }, [id, targetUserId, user?.id, profileLoading, profileErrorMessage, isFriendView]);
 
     async function refreshRestaurantEntries() {
         if (!id || !targetUserId || !user?.id) {
@@ -163,13 +146,15 @@ export default function RestaurantDetails() {
         }
 
         try {
-            const dishEntriesData = await getDishEntriesForRestaurant(id, targetUserId);
-            const dishEntriesWithExtras = await buildEntriesWithExtras(
-                dishEntriesData,
-                user.id
-            );
+            const dishEntriesData = await getRestaurantDetailEntries({
+                restaurantId: id,
+                targetUserId,
+                viewerUserId: user.id,
+            });
 
-            setDishEntries(dishEntriesWithExtras);
+            const dishEntriesWithAssets = await buildEntriesWithAssets(dishEntriesData);
+
+            setDishEntries(dishEntriesWithAssets);
         } catch (error) {
             setErrorMessage(error.message || "Failed to refresh dish entries.");
         }

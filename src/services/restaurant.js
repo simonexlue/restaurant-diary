@@ -347,3 +347,19 @@ export async function fetchFriendRestaurantPins() {
                 : null,
     }));
 }
+
+export async function getRestaurantFriendsVisitedCount(restaurantId) {
+    if (!restaurantId) {
+        throw new Error("Restaurant id is required.");
+    }
+
+    const { data, error } = await supabase.rpc("get_restaurant_friends_visited_count", {
+        p_restaurant_id: restaurantId,
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    return data?.[0]?.friends_visited_count ?? 0;
+}
