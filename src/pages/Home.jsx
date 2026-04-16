@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MdPeopleOutline } from "react-icons/md";
-import useUserProfile from "../hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
+import useUserProfile from "../hooks/useUserProfile";
 import FriendsActivity from "../components/home/FriendsActivity";
 import PalateCard from "../components/home/PalateCard";
 import RecentEntryCard from "../components/home/RecentEntryCard";
+import FirstEntryGuideCard from "../components/home/FirstEntryGuideCard";
+import Spotlight from "../components/onboarding/Spotlight";
 import {
     getRecentEntries,
     getHomeFriendsActivity,
     getHomePalateData,
+    getHomeOnboardingStatus,
+    markHomeOnboardingSkipped,
+    markHomeOnboardingCompleted,
 } from "../services/home";
 
 export default function Home() {
     const { profile, loading, errorMessage } = useUserProfile();
+    const navigate = useNavigate();
+
     const [recentEntries, setRecentEntries] = useState([]);
     const [recentEntriesLoading, setRecentEntriesLoading] = useState(true);
     const [recentEntriesError, setRecentEntriesError] = useState("");
@@ -25,7 +32,33 @@ export default function Home() {
     const [palateLoading, setPalateLoading] = useState(true);
     const [palateError, setPalateError] = useState("");
 
-    const navigate = useNavigate();
+    const [homeOnboardingStatus, setHomeOnboardingStatus] = useState(null);
+    const [homeOnboardingLoading, setHomeOnboardingLoading] = useState(true);
+
+    const openMapButtonRef = useRef(null);
+    const openAddEntryRef = useRef(null);
+    const entryCardRef = useRef(null);
+
+    const [showHomeSpotlight, setShowHomeSpotlight] = useState(false);
+    const [homeSpotlightStep, setHomeSpotlightStep] = useState(0);
+
+    function handleOpenMapOnboarding() {
+        navigate("/map?onboarding=first-entry");
+    }
+
+    async function handleFinishHomeSpotlight() {
+        if (!profile?.id) return;
+
+        setHomeOnboardingStatus("skipped");
+        setShowHomeSpotlight(false);
+        setHomeSpotlightStep(0);
+
+        try {
+            await markHomeOnboardingSkipped(profile.id);
+        } catch (error) {
+            console.error("Failed to mark home onboarding skipped:", error);
+        }
+    }
 
     useEffect(() => {
         async function loadPalateData() {
@@ -99,12 +132,102 @@ export default function Home() {
         loadRecentEntries();
     }, [profile?.id]);
 
+    useEffect(() => {
+        async function loadHomeOnboardingStatus() {
+            if (!profile?.id) {
+                setHomeOnboardingLoading(false);
+                return;
+            }
+
+            try {
+                setHomeOnboardingLoading(true);
+                const status = await getHomeOnboardingStatus(profile.id);
+                setHomeOnboardingStatus(status || "not_started");
+            } catch (error) {
+                console.error("Failed to load home onboarding status:", error);
+                setHomeOnboardingStatus("not_started");
+            } finally {
+                setHomeOnboardingLoading(false);
+            }
+        }
+
+        loadHomeOnboardingStatus();
+    }, [profile?.id]);
+
+    useEffect(() => {
+        if (recentEntriesLoading || homeOnboardingLoading) return;
+        if (recentEntriesError) return;
+
+        const shouldShow =
+            recentEntries.length === 0 &&
+            homeOnboardingStatus === "not_started";
+
+        setShowHomeSpotlight(shouldShow);
+
+        if (shouldShow) {
+            setHomeSpotlightStep(0);
+        }
+    }, [
+        recentEntries,
+        recentEntriesLoading,
+        recentEntriesError,
+        homeOnboardingStatus,
+        homeOnboardingLoading,
+    ]);
+
     if (loading) {
         return <p>Loading...</p>;
     }
 
     if (errorMessage) {
         return <p>{errorMessage}</p>;
+    }
+
+    const homeSpotlightSteps = [
+        {
+            targetRef: entryCardRef,
+            title: "This is your Recent Entries section",
+            description: "Your newest dish logs will appear here once you start adding entries.",
+            primaryLabel: "Next",
+        },
+        {
+            targetRef: openMapButtonRef,
+            title: "Use Open Map to find restaurants",
+            description: "Search with Google suggestions, pick a place, and start logging dishes from there.",
+            primaryLabel: "Next",
+        },
+        {
+            targetRef: openAddEntryRef,
+            title: "Add your first entry",
+            description: "Click this button to start logging your first dish.",
+            hideActions: true,
+            allowTargetInteraction: true,
+        },
+    ];
+
+    const currentHomeSpotlightStep = homeSpotlightSteps[homeSpotlightStep];
+
+    function handleHomeSpotlightPrimary() {
+        setHomeSpotlightStep((prev) => prev + 1);
+    }
+
+    async function handleAddEntryClick() {
+        if (showHomeSpotlight && homeSpotlightStep === homeSpotlightSteps.length - 1 && profile?.id) {
+            setHomeOnboardingStatus("completed");
+            setShowHomeSpotlight(false);
+            setHomeSpotlightStep(0);
+
+            try {
+                await markHomeOnboardingCompleted(profile.id);
+            } catch (error) {
+                console.error("Failed to mark home onboarding completed:", error);
+            }
+
+            navigate("/diary/new?onboarding=first-entry");
+            return;
+        }
+
+        navigate("/diary/new");
     }
 
     return (
@@ -114,16 +237,20 @@ export default function Home() {
                     <p className="text-3xl text-bold text-stone-700">Welcome back</p>
                     <p className="text-[rgb(137,122,114)]">{profile?.display_name}</p>
                 </div>
+
                 <div className="flex flex-row gap-2">
                     <button
+                        ref={openAddEntryRef}
                         className="px-4 py-2 text-sm text-white border rounded-lg bg-[rgb(203,84,51)] hover:cursor-pointer"
-                        onClick={() => navigate(`/diary/new`)}
+                        onClick={handleAddEntryClick}
                     >
                         + Add Entry
                     </button>
+
                     <button
+                        ref={openMapButtonRef}
                         className="px-4 py-2 text-sm text-stone-700 border border-stone-200 rounded-lg hover:cursor-pointer"
-                        onClick={() => navigate(`/map`)}
+                        onClick={handleOpenMapOnboarding}
                     >
                         Open Map
                     </button>
@@ -196,7 +323,7 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="rounded-lg flex flex-col gap-3 bg-white shadow-xs py-4">
+            <div className="rounded-lg flex flex-col gap-3 bg-white shadow-xs py-4" ref={entryCardRef}>
                 <div className="px-6">
                     <p className="text-[rgb(137,122,114)] text-sm mb-2 mt-2">RECENT ENTRIES</p>
                     <p className="text-stone-700 text-md">Your latest meals, in one clean list.</p>
@@ -212,7 +339,7 @@ export default function Home() {
                     )}
 
                     {!recentEntriesLoading && !recentEntriesError && recentEntries.length === 0 && (
-                        <p className="w-full px-6 text-sm text-stone-500">No recent entries yet.</p>
+                        <FirstEntryGuideCard />
                     )}
 
                     {!recentEntriesLoading && !recentEntriesError && recentEntries.map((entry, index) => (
@@ -235,6 +362,22 @@ export default function Home() {
                     ))}
                 </div>
             </div>
+
+            {showHomeSpotlight && currentHomeSpotlightStep && (
+                <Spotlight
+                    targetRef={currentHomeSpotlightStep.targetRef}
+                    title={currentHomeSpotlightStep.title}
+                    description={currentHomeSpotlightStep.description}
+                    step={homeSpotlightStep + 1}
+                    totalSteps={homeSpotlightSteps.length}
+                    primaryLabel={currentHomeSpotlightStep.primaryLabel}
+                    secondaryLabel="Skip"
+                    onPrimary={handleHomeSpotlightPrimary}
+                    onSecondary={handleFinishHomeSpotlight}
+                    hideActions={currentHomeSpotlightStep.hideActions}
+                    allowTargetInteraction={currentHomeSpotlightStep.allowTargetInteraction}
+                />
+            )}
         </div>
     );
 }

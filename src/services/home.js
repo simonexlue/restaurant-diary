@@ -5,10 +5,12 @@ import { getDishPhotoUrl } from "./diary";
   Personal Home data cache:
   - recent entries
   - palate
+  - home onboarding status
 */
 
 const recentEntriesCache = new Map();
 const palateCache = new Map();
+const homeOnboardingCache = new Map();
 
 function makeCacheKey(userId, limit) {
   return `${userId}-${limit}`;
@@ -38,6 +40,15 @@ export function invalidatePalateCache(userId) {
       palateCache.delete(key);
     }
   }
+}
+
+export function invalidateHomeOnboardingCache(userId) {
+  if (!userId) {
+    homeOnboardingCache.clear();
+    return;
+  }
+
+  homeOnboardingCache.delete(userId);
 }
 
 export function invalidateHomePersonalCaches(userId) {
@@ -156,4 +167,73 @@ export async function getHomePalateData(userId, limit = 5, options = {}) {
   const result = data || [];
   palateCache.set(cacheKey, result);
   return result;
+}
+
+/*
+  Home onboarding status:
+  - not_started
+  - skipped
+  - completed
+*/
+
+export async function getHomeOnboardingStatus(userId, options = {}) {
+  if (!userId) {
+    throw new Error("User id is required");
+  }
+
+  const { forceRefresh = false } = options;
+
+  if (!forceRefresh && homeOnboardingCache.has(userId)) {
+    return homeOnboardingCache.get(userId);
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("home_onboarding_status")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching home onboarding status:", error);
+    throw error;
+  }
+
+  const status = data?.home_onboarding_status || "not_started";
+  homeOnboardingCache.set(userId, status);
+  return status;
+}
+
+export async function updateHomeOnboardingStatus(userId, status) {
+  if (!userId) {
+    throw new Error("User id is required");
+  }
+
+  const allowedStatuses = ["not_started", "skipped", "completed"];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new Error("Invalid home onboarding status");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      home_onboarding_status: status,
+    })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Error updating home onboarding status:", error);
+    throw error;
+  }
+
+  homeOnboardingCache.set(userId, status);
+  return status;
+}
+
+export async function markHomeOnboardingSkipped(userId) {
+  return updateHomeOnboardingStatus(userId, "skipped");
+}
+
+export async function markHomeOnboardingCompleted(userId) {
+  return updateHomeOnboardingStatus(userId, "completed");
 }
