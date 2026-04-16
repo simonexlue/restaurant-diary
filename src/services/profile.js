@@ -2,20 +2,75 @@ import { supabase } from "../lib/supabase";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
+const SIGNED_URL_REFRESH_BUFFER_MS = 60 * 1000;
+
+const profilePhotoUrlCache = new Map();
+
+function getCachedProfilePhotoUrl(photoPath) {
+    if (!photoPath) return null;
+
+    const cached = profilePhotoUrlCache.get(photoPath);
+
+    if (!cached) {
+        return null;
+    }
+
+    const isExpired = Date.now() >= cached.expiresAt;
+
+    if (isExpired) {
+        profilePhotoUrlCache.delete(photoPath);
+        return null;
+    }
+
+    return cached.url;
+}
+
+function setCachedProfilePhotoUrl(photoPath, url) {
+    if (!photoPath || !url) return;
+
+    const expiresAt =
+        Date.now() +
+        SIGNED_URL_EXPIRES_IN_SECONDS * 1000 -
+        SIGNED_URL_REFRESH_BUFFER_MS;
+
+    profilePhotoUrlCache.set(photoPath, {
+        url,
+        expiresAt,
+    });
+}
+
+export function invalidateProfilePhotoUrlCache(photoPath) {
+    if (!photoPath) return;
+    profilePhotoUrlCache.delete(photoPath);
+}
+
+export function clearProfilePhotoUrlCache() {
+    profilePhotoUrlCache.clear();
+}
 
 export async function getProfilePhotoUrl(photoPath) {
     if (!photoPath) return null;
+
+    const cachedUrl = getCachedProfilePhotoUrl(photoPath);
+    if (cachedUrl) {
+        return cachedUrl;
+    }
 
     const { data, error } = await supabase.storage
         .from(PROFILE_PHOTOS_BUCKET)
         .createSignedUrl(photoPath, SIGNED_URL_EXPIRES_IN_SECONDS);
 
     if (error) {
-        console.error("Failed to create signed profile photo URL:", error);
         return null;
     }
 
-    return data?.signedUrl || null;
+    const signedUrl = data?.signedUrl || null;
+
+    if (signedUrl) {
+        setCachedProfilePhotoUrl(photoPath, signedUrl);
+    }
+
+    return signedUrl;
 }
 
 export async function uploadProfilePhoto({ file, userId }) {
@@ -49,7 +104,10 @@ export async function removeProfilePhoto(photoPath) {
 
     if (error) {
         console.error("Failed to remove profile photo:", error);
+        return;
     }
+
+    invalidateProfilePhotoUrlCache(photoPath);
 }
 
 export async function updateUserProfile({
@@ -152,19 +210,19 @@ function sanitizeFileName(fileName) {
 }
 
 export async function getProfileById(userId) {
-    if(!userId) {
-        throw new Error("User id is required")
+    if (!userId) {
+        throw new Error("User id is required");
     }
 
-    const {data, error} = await supabase
+    const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single()
+        .single();
 
-    if(error) {
-        throw new Error(error.message || "Failed to load profile")
+    if (error) {
+        throw new Error(error.message || "Failed to load profile");
     }
 
-    return data
+    return data;
 }

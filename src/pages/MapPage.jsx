@@ -281,7 +281,7 @@ export default function MapPage() {
 
                 const [savedRestaurantRows, friendRestaurantRows] = await Promise.all([
                     fetchSavedRestaurantsForUser(user.id),
-                    fetchFriendRestaurantPins(user.id),
+                    fetchFriendRestaurantPins(),
                 ]);
 
                 if (!isMounted) return;
