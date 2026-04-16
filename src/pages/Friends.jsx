@@ -17,9 +17,11 @@ import {
     getFriendsList,
     getFriendsFeed,
 } from "../services/friends";
+import { useNavigate } from "react-router-dom";
 
 export default function Friends() {
     const { profile, loading, errorMessage } = useUserProfile();
+    const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState("friends");
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
@@ -443,6 +445,7 @@ export default function Friends() {
                                 onCancel={() => handleCancelRequest(request.id)}
                                 actionLoading={cancelLoadingId === request.id}
                                 avatar_url={request.receiver_profile?.avatar_url}
+                                onClick={() => navigate(`/profile/${request.receiver_profile?.id}`)}
                             />
                         ))
                     )}
