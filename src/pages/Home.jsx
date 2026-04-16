@@ -34,7 +34,7 @@ export default function Home() {
                 setPalateLoading(true);
                 setPalateError("");
 
-                const data = await getHomePalateData(profile.id);
+                const data = await getHomePalateData();
                 setPalateData(data);
             } catch (error) {
                 setPalateError(error.message || "Failed to load palate data");
@@ -58,7 +58,7 @@ export default function Home() {
                 setFriendsActivityLoading(true);
                 setFriendsActivityError("");
 
-                const data = await getHomeFriendsActivity(profile.id);
+                const data = await getHomeFriendsActivity();
                 setFriendsActivity(data);
             } catch (error) {
                 setFriendsActivityError(error.message || "Failed to load friend activity");
