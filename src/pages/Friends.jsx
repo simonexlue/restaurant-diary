@@ -2,7 +2,7 @@ import FriendsCard from "../components/friends/FriendsCard";
 import { MdPeopleOutline } from "react-icons/md";
 import FriendsReviewCard from "../components/friends/FriendsReviewCard";
 import SentRequestCard from "../components/friends/SentRequestCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import FriendRequestCard from "../components/friends/FriendRequestCard";
 import AddFriendModal from "../components/friends/AddFriendModal";
 import { IoPaperPlaneOutline } from "react-icons/io5";
@@ -20,120 +20,179 @@ import {
 
 export default function Friends() {
     const { profile, loading, errorMessage } = useUserProfile();
+
     const [activeTab, setActiveTab] = useState("friends");
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
-    const [incomingRequests, setIncomingRequests] = useState([])
-    const [requestLoading, setRequestLoading] = useState(false)
-    const [requestsError, setRequestsError] = useState("")
-    const [actionLoadingId, setActionLoadingId] = useState(null)
+    const [incomingRequests, setIncomingRequests] = useState([]);
+    const [requestLoading, setRequestLoading] = useState(false);
+    const [requestsError, setRequestsError] = useState("");
+    const [actionLoadingId, setActionLoadingId] = useState(null);
 
     const [sentRequests, setSentRequests] = useState([]);
     const [sentRequestsLoading, setSentRequestsLoading] = useState(false);
     const [sentRequestsError, setSentRequestsError] = useState("");
     const [cancelLoadingId, setCancelLoadingId] = useState(null);
+    const [hasLoadedSent, setHasLoadedSent] = useState(false);
 
-    const [friends, setFriends] = useState([])
-    const [friendsLoading, setFriendsLoading] = useState(false)
-    const [friendsError, setFriendsError] = useState("")
+    const [friends, setFriends] = useState([]);
+    const [friendsLoading, setFriendsLoading] = useState(false);
+    const [friendsError, setFriendsError] = useState("");
 
     const [feedItems, setFeedItems] = useState([]);
     const [feedLoading, setFeedLoading] = useState(false);
     const [feedError, setFeedError] = useState("");
+    const [hasLoadedFeed, setHasLoadedFeed] = useState(false);
 
-    const [friendsSearch, setFriendsSearch] = useState("")
+    const [friendsSearch, setFriendsSearch] = useState("");
 
-    useEffect(() => {
-        async function loadFriends() {
-            if (!profile?.id) return;
+    const loadFriends = useCallback(async () => {
+        if (!profile?.id) return;
 
-            try {
-                setFriendsLoading(true)
-                setFriendsError("")
+        try {
+            setFriendsLoading(true);
+            setFriendsError("");
 
-                const data = await getFriendsList(profile.id)
-                setFriends(data);
-            } catch (error) {
-                setFriendsError(error.message || "Failed to load friends")
-                setFriends([])
-            } finally {
-                setFriendsLoading(false)
-            }
+            const data = await getFriendsList(profile.id);
+            setFriends(data);
+        } catch (error) {
+            setFriendsError(error.message || "Failed to load friends");
+            setFriends([]);
+        } finally {
+            setFriendsLoading(false);
         }
-        loadFriends();
-    }, [profile?.id])
-
-    useEffect(() => {
-        async function loadIncomingRequests() {
-            if (!profile?.id) {
-                return
-            }
-
-            try {
-                setRequestLoading(true)
-                setRequestsError("")
-
-                const data = await getIncomingFriendRequests(profile.id);
-                setIncomingRequests(data)
-            } catch (error) {
-                setRequestsError(error.message || "Failed to load friend requests")
-                setIncomingRequests([]);
-            } finally {
-                setRequestLoading(false)
-            }
-        }
-
-        loadIncomingRequests();
-    }, [profile?.id])
-
-    useEffect(() => {
-        loadSentRequests();
     }, [profile?.id]);
 
-    async function loadSentRequests() {
-        if (!profile?.id) {
-            return;
+    const loadIncomingRequests = useCallback(async () => {
+        if (!profile?.id) return;
+
+        try {
+            setRequestLoading(true);
+            setRequestsError("");
+
+            const data = await getIncomingFriendRequests(profile.id, {
+                forceRefresh: true,
+            });
+            setIncomingRequests(data);
+        } catch (error) {
+            setRequestsError(error.message || "Failed to load friend requests");
+            setIncomingRequests([]);
+        } finally {
+            setRequestLoading(false);
         }
+    }, [profile?.id]);
+
+    const loadSentRequests = useCallback(async (options = {}) => {
+        if (!profile?.id) return;
 
         try {
             setSentRequestsLoading(true);
             setSentRequestsError("");
 
-            const data = await getSentFriendRequests(profile.id);
+            const data = await getSentFriendRequests(profile.id, options);
             setSentRequests(data);
+            setHasLoadedSent(true);
         } catch (error) {
             setSentRequestsError(error.message || "Failed to load sent requests.");
             setSentRequests([]);
         } finally {
             setSentRequestsLoading(false);
         }
-    }
+    }, [profile?.id]);
+
+    const loadFeed = useCallback(async (options = {}) => {
+        if (!profile?.id) return;
+
+        try {
+            setFeedLoading(true);
+            setFeedError("");
+
+            const data = await getFriendsFeed(profile.id, options);
+            setFeedItems(data);
+            setHasLoadedFeed(true);
+        } catch (error) {
+            setFeedError(error.message || "Failed to load feed");
+            setFeedItems([]);
+        } finally {
+            setFeedLoading(false);
+        }
+    }, [profile?.id]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        loadFriends();
+        loadIncomingRequests();
+    }, [profile?.id, loadFriends, loadIncomingRequests]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        if (activeTab !== "feed" || hasLoadedFeed) return;
+
+        loadFeed();
+    }, [activeTab, hasLoadedFeed, loadFeed, profile?.id]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        if (activeTab !== "sent" || hasLoadedSent) return;
+
+        loadSentRequests();
+    }, [activeTab, hasLoadedSent, loadSentRequests, profile?.id]);
 
     async function handleAcceptRequest(requestId) {
         try {
-            setActionLoadingId(requestId)
-            setRequestsError("")
+            setActionLoadingId(requestId);
+            setRequestsError("");
 
-            await acceptFriendRequest(requestId, profile.id)
-            setIncomingRequests((prev) => prev.filter((request) => request.id !== requestId))
+            const acceptedRequest = incomingRequests.find(
+                (r) => r.id === requestId
+            );
+
+            await acceptFriendRequest(requestId, profile.id);
+
+            // remove request
+            setIncomingRequests((prev) =>
+                prev.filter((request) => request.id !== requestId)
+            );
+
+            if (acceptedRequest?.sender_profile) {
+                const newFriend = {
+                    id: acceptedRequest.sender_profile.id,
+                    username: acceptedRequest.sender_profile.username,
+                    display_name: acceptedRequest.sender_profile.display_name,
+                    avatar_url: acceptedRequest.sender_profile.avatar_url,
+                    entryCount: 0,
+                    mutualCount: 0,
+                    recentRestaurant: null,
+                    recentTime: null,
+                };
+
+                setFriends((prev) => [newFriend, ...prev]);
+            }
+
+            if (hasLoadedFeed) {
+                await loadFeed({ limit: 10 });
+            }
         } catch (error) {
-            setRequestsError(error.message || "Failed to accept request")
+            setRequestsError(error.message || "Failed to accept request");
         } finally {
-            setActionLoadingId(null)
+            setActionLoadingId(null);
         }
     }
 
     async function handleDeclineRequest(requestId) {
         try {
-            setActionLoadingId(requestId)
-            setRequestsError("")
+            setActionLoadingId(requestId);
+            setRequestsError("");
 
-            await declineFriendRequest(requestId, profile.id)
-            setIncomingRequests((prev) => prev.filter((request) => request.id !== requestId))
+            await declineFriendRequest(requestId, profile.id);
+
+            setIncomingRequests((prev) =>
+                prev.filter((request) => request.id !== requestId)
+            );
         } catch (error) {
-            setRequestsError(error.message || "Failed to decline request")
+            setRequestsError(error.message || "Failed to decline request");
         } finally {
-            setActionLoadingId(null)
+            setActionLoadingId(null);
         }
     }
 
@@ -144,7 +203,6 @@ export default function Friends() {
 
             await cancelFriendRequest(requestId, profile.id);
 
-            // remove from UI immediately
             setSentRequests((prev) =>
                 prev.filter((request) => request.id !== requestId)
             );
@@ -154,29 +212,6 @@ export default function Friends() {
             setCancelLoadingId(null);
         }
     }
-
-    useEffect(() => {
-        async function loadFeed() {
-            if (!profile?.id) {
-                return;
-            }
-
-            try {
-                setFeedLoading(true);
-                setFeedError("");
-
-                const data = await getFriendsFeed(profile.id);
-                setFeedItems(data);
-            } catch (error) {
-                setFeedError(error.message || "Failed to load feed");
-                setFeedItems([]);
-            } finally {
-                setFeedLoading(false);
-            }
-        }
-
-        loadFeed();
-    }, [profile?.id]);
 
     const filteredFriends = friends.filter((friend) => {
         const searchValue = friendsSearch.trim().toLowerCase();
@@ -196,15 +231,32 @@ export default function Friends() {
         );
     });
 
+    if (loading) {
+        return (
+            <div className="max-w-6xl mx-auto">
+                <p className="text-sm text-[rgb(137,122,114)]">Loading friends page...</p>
+            </div>
+        );
+    }
+
+    if (errorMessage) {
+        return (
+            <div className="max-w-6xl mx-auto">
+                <p className="text-sm text-red-500">{errorMessage}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-5 max-w-6xl mx-auto">
-
-            {/*Header */}
-            <div className="flex flex-col gap-4 md:flex-row justify-between items-start ">
+            {/* Header */}
+            <div className="flex flex-col gap-4 md:flex-row justify-between items-start">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl text-stone-700">Friends </h1>
+                    <h1 className="text-3xl text-stone-700">Friends</h1>
                     <p className="text-[rgb(137,122,114)] text-sm">
-                        {friends.length} {friends.length === 1 ? "friend" : "friends"} | {incomingRequests.length} {incomingRequests.length === 1 ? "pending request" : "pending requests"}
+                        {friends.length} {friends.length === 1 ? "friend" : "friends"} |{" "}
+                        {incomingRequests.length}{" "}
+                        {incomingRequests.length === 1 ? "pending request" : "pending requests"}
                     </p>
                 </div>
 
@@ -261,27 +313,26 @@ export default function Friends() {
             {/* Tabs */}
             <div className="flex flex-row gap-3 bg-[rgb(237,232,228)] rounded-lg px-3 py-2 justify-start items-center w-max">
                 <button
-                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "friends"
-                        ? "bg-white text-stone-700"
-                        : "text-stone-700"}`}
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "friends" ? "bg-white text-stone-700" : "text-stone-700"
+                        }`}
                     onClick={() => setActiveTab("friends")}
                 >
                     <MdPeopleOutline size={20} />
                     Friends
                 </button>
+
                 <button
-                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "feed"
-                        ? "bg-white text-stone-700"
-                        : "text-stone-700"}`}
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "feed" ? "bg-white text-stone-700" : "text-stone-700"
+                        }`}
                     onClick={() => setActiveTab("feed")}
                 >
                     <IoBookOutline className="relative top-[1px]" />
                     Feed
                 </button>
+
                 <button
-                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "sent"
-                        ? "bg-white text-stone-700"
-                        : "text-stone-700"}`}
+                    className={`flex flex-row items-center gap-2 py-1.5 px-3 rounded-lg hover:cursor-pointer ${activeTab === "sent" ? "bg-white text-stone-700" : "text-stone-700"
+                        }`}
                     onClick={() => setActiveTab("sent")}
                 >
                     <IoPaperPlaneOutline className="relative top-[1px]" />
@@ -289,7 +340,7 @@ export default function Friends() {
                 </button>
             </div>
 
-            {/* Friends Tab Content */}
+            {/* Friends Tab */}
             {activeTab === "friends" && (
                 <div className="flex flex-col gap-4">
                     <input
@@ -313,7 +364,7 @@ export default function Friends() {
                             No friends match your search.
                         </p>
                     ) : (
-                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 ">
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                             {filteredFriends.map((friend) => (
                                 <FriendsCard
                                     key={friend.id}
@@ -332,7 +383,7 @@ export default function Friends() {
                 </div>
             )}
 
-            {/* Feed Tab Content  */}
+            {/* Feed Tab */}
             {activeTab === "feed" && (
                 <div>
                     <p className="text-[rgb(137,122,114)] text-sm mb-3">
@@ -371,8 +422,7 @@ export default function Friends() {
                 </div>
             )}
 
-
-            {/* Sent Tab Content */}
+            {/* Sent Tab */}
             {activeTab === "sent" && (
                 <div className="flex flex-col gap-2">
                     {sentRequestsLoading ? (
@@ -400,8 +450,12 @@ export default function Friends() {
             )}
 
             {showAddFriendModal && (
-                <AddFriendModal onClose={() => setShowAddFriendModal(false)} currentUserId={profile?.id} onRequestSent={loadSentRequests} />
+                <AddFriendModal
+                    onClose={() => setShowAddFriendModal(false)}
+                    currentUserId={profile?.id}
+                    onRequestSent={() => loadSentRequests({ forceRefresh: true })}
+                />
             )}
         </div>
-    )
+    );
 }
