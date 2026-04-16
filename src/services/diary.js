@@ -3,6 +3,27 @@ import { saveRestaurantForUser } from "./restaurant";
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
+const SIGNED_URL_REFRESH_BUFFER_MS = 60 * 1000;
+
+const dishPhotoUrlCache = new Map();
+const myDiaryCardsCache = new Map();
+
+function makeMyDiaryCardsCacheKey(userId) {
+    return String(userId);
+}
+
+export function invalidateMyDiaryCardsCache(userId) {
+    if (!userId) {
+        myDiaryCardsCache.clear();
+        return;
+    }
+
+    myDiaryCardsCache.delete(makeMyDiaryCardsCacheKey(userId));
+}
+
+export function clearMyDiaryCardsCache() {
+    myDiaryCardsCache.clear();
+}
 
 export async function getUserDiaryRestaurants(userId) {
     const { data, error } = await supabase
@@ -20,7 +41,6 @@ export async function getUserDiaryRestaurants(userId) {
         .order("created_at", { ascending: false });
 
     if (error) {
-        console.error("Error fetching saved restaurants:", error);
         throw error;
     }
 
@@ -55,26 +75,77 @@ export async function getUserDishEntries(userId) {
         .order("created_at", { ascending: false });
 
     if (error) {
-        console.error("Error fetching dish entries:", error);
         throw error;
     }
 
     return data || [];
 }
 
+function getCachedDishPhotoUrl(photoPath) {
+    if (!photoPath) return null;
+
+    const cached = dishPhotoUrlCache.get(photoPath);
+
+    if (!cached) {
+        return null;
+    }
+
+    const isExpired = Date.now() >= cached.expiresAt;
+
+    if (isExpired) {
+        dishPhotoUrlCache.delete(photoPath);
+        return null;
+    }
+
+    return cached.url;
+}
+
+function setCachedDishPhotoUrl(photoPath, url) {
+    if (!photoPath || !url) return;
+
+    const expiresAt =
+        Date.now() +
+        SIGNED_URL_EXPIRES_IN_SECONDS * 1000 -
+        SIGNED_URL_REFRESH_BUFFER_MS;
+
+    dishPhotoUrlCache.set(photoPath, {
+        url,
+        expiresAt,
+    });
+}
+
+export function invalidateDishPhotoUrlCache(photoPath) {
+    if (!photoPath) return;
+    dishPhotoUrlCache.delete(photoPath);
+}
+
+export function clearDishPhotoUrlCache() {
+    dishPhotoUrlCache.clear();
+}
+
 export async function getDishPhotoUrl(photoPath) {
     if (!photoPath) return null;
+
+    const cachedUrl = getCachedDishPhotoUrl(photoPath);
+    if (cachedUrl) {
+        return cachedUrl;
+    }
 
     const { data, error } = await supabase.storage
         .from(DISH_PHOTOS_BUCKET)
         .createSignedUrl(photoPath, SIGNED_URL_EXPIRES_IN_SECONDS);
 
     if (error) {
-        console.error("Failed to create signed URL:", error);
         return null;
     }
 
-    return data?.signedUrl || null;
+    const signedUrl = data?.signedUrl || null;
+
+    if (signedUrl) {
+        setCachedDishPhotoUrl(photoPath, signedUrl);
+    }
+
+    return signedUrl;
 }
 
 export async function uploadDishPhoto({ file, userId, restaurantId }) {
@@ -108,8 +179,10 @@ export async function removeDishPhoto(photoPath) {
         .remove([photoPath]);
 
     if (error) {
-        console.error("Failed to remove uploaded photo during rollback:", error);
+        return;
     }
+
+    invalidateDishPhotoUrlCache(photoPath);
 }
 
 export async function createDishEntry({
@@ -696,4 +769,46 @@ export async function deleteDishEntryComment(commentId, userId) {
     }
 
     return true;
+}
+
+export async function getMyDiaryCards(userId, options = {}) {
+    if (!userId) {
+        throw new Error("User id is required.");
+    }
+
+    const { forceRefresh = false } = options;
+    const cacheKey = makeMyDiaryCardsCacheKey(userId);
+
+    if (!forceRefresh && myDiaryCardsCache.has(cacheKey)) {
+        console.log("[MyDiary Cache] cache hit:", userId);
+        return myDiaryCardsCache.get(cacheKey);
+    }
+
+    console.log("[MyDiary Cache] fetching diary cards:", userId);
+
+    const { data, error } = await supabase.rpc("get_my_diary_cards", {
+        p_user_id: userId,
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    const result = (data || []).map((row) => ({
+        id: row.id,
+        name: row.name || "Unnamed Restaurant",
+        address: row.address || "No address provided",
+        entryCount: row.entry_count || 0,
+        lastVisited: row.last_visited || null,
+        averageRating:
+            row.average_rating !== null && row.average_rating !== undefined
+                ? Number(row.average_rating)
+                : null,
+        topTag: row.top_tag || null,
+        recentPhoto: row.recent_photo || null,
+        allTags: Array.isArray(row.all_tags) ? row.all_tags : [],
+    }));
+
+    myDiaryCardsCache.set(cacheKey, result);
+    return result;
 }

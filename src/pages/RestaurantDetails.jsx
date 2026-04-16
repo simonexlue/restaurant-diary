@@ -195,6 +195,7 @@ export default function RestaurantDetails() {
             });
 
             invalidateHomePersonalCaches(user.id);
+            invalidateMyDiaryCardsCache(user.id);
 
             setDishEntries((prev) => prev.filter((item) => item.id !== entry.id));
 

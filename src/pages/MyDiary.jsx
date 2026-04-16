@@ -1,144 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import DiaryCard from "../components/diary/DiaryCard";
-import {
-    getUserDishEntries,
-    getDishPhotoUrl,
-} from "../services/diary";
+import { getMyDiaryCards, getDishPhotoUrl, invalidateMyDiaryCardsCache } from "../services/diary";
 import { deleteRestaurantForUser } from "../services/restaurant";
 import useUserProfile from "../hooks/useUserProfile";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import TagPill from "../components/ui/TagPill";
 import { getProfileById } from "../services/profile";
 import { invalidateHomePersonalCaches } from "../services/home";
-
-function normalizeTags(tags) {
-    if (!tags) return [];
-
-    if (Array.isArray(tags)) {
-        return tags.map((tag) => String(tag).trim()).filter(Boolean);
-    }
-
-    return [String(tags).trim()].filter(Boolean);
-}
-
-function buildDiaryCardsFromEntries(dishEntries) {
-    const entriesByRestaurantId = new Map();
-
-    for (const entry of dishEntries) {
-        if (!entry?.restaurant_id || !entry?.restaurants) continue;
-
-        const existingEntries = entriesByRestaurantId.get(entry.restaurant_id) || [];
-        existingEntries.push(entry);
-        entriesByRestaurantId.set(entry.restaurant_id, existingEntries);
-    }
-
-    return Array.from(entriesByRestaurantId.entries()).map(([restaurantId, entries]) => {
-        const restaurant = entries[0]?.restaurants;
-
-        const sortedEntries = [...entries].sort((a, b) => {
-            if (!a.date_tried) return 1;
-            if (!b.date_tried) return -1;
-            return b.date_tried.localeCompare(a.date_tried);
-        });
-
-        let averageRating = null;
-
-        const entriesWithRatings = entries.filter(
-            (entry) =>
-                entry.item_rating !== null &&
-                entry.item_rating !== undefined &&
-                !Number.isNaN(Number(entry.item_rating))
-        );
-
-        if (entriesWithRatings.length > 0) {
-            const totalRating = entriesWithRatings.reduce(
-                (sum, entry) => sum + Number(entry.item_rating),
-                0
-            );
-
-            averageRating = totalRating / entriesWithRatings.length;
-        }
-
-        const tagCounts = new Map();
-        let topTag = null;
-
-        for (const entry of entries) {
-            const entryTags = normalizeTags(entry.tags);
-
-            for (const tag of entryTags) {
-                const currentCount = tagCounts.get(tag) || 0;
-                tagCounts.set(tag, currentCount + 1);
-            }
-        }
-
-        if (tagCounts.size > 0) {
-            let highestCount = 0;
-
-            for (const count of tagCounts.values()) {
-                if (count > highestCount) {
-                    highestCount = count;
-                }
-            }
-
-            const mostCommonTags = [];
-
-            for (const [tag, count] of tagCounts.entries()) {
-                if (count === highestCount) {
-                    mostCommonTags.push(tag);
-                }
-            }
-
-            if (mostCommonTags.length === 1) {
-                topTag = mostCommonTags[0];
-            } else {
-                for (const entry of sortedEntries) {
-                    const entryTags = normalizeTags(entry.tags);
-
-                    for (const tag of entryTags) {
-                        if (mostCommonTags.includes(tag)) {
-                            topTag = tag;
-                            break;
-                        }
-                    }
-
-                    if (topTag) break;
-                }
-            }
-        }
-
-        const recentPhoto =
-            sortedEntries.find((entry) => entry.photo_path)?.photo_path || null;
-
-        const allTags = Array.from(tagCounts.keys());
-
-        return {
-            id: restaurantId,
-            name: restaurant?.name || "Unnamed Restaurant",
-            address: restaurant?.address || "No address provided",
-            entryCount: entries.length,
-            lastVisited: sortedEntries[0]?.date_tried || null,
-            averageRating,
-            topTag,
-            recentPhoto,
-            allTags,
-        };
-    });
-}
-
-function buildAllUniqueTags(dishEntries) {
-    const uniqueTags = new Set();
-
-    for (const entry of dishEntries) {
-        const entryTags = normalizeTags(entry.tags);
-
-        for (const tag of entryTags) {
-            uniqueTags.add(tag);
-        }
-    }
-
-    return Array.from(uniqueTags).sort((a, b) => a.localeCompare(b));
-}
 
 export default function MyDiary() {
     const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
@@ -206,10 +75,17 @@ export default function MyDiary() {
         setErrorMessage("");
 
         try {
-            const dishEntries = await getUserDishEntries(diaryUserId);
+            const diaryCards = await getMyDiaryCards(diaryUserId, {
+                forceRefresh: !isOwnDiary ? true : false,
+            });
 
-            const diaryCards = buildDiaryCardsFromEntries(dishEntries);
-            const uniqueTags = buildAllUniqueTags(dishEntries);
+            const uniqueTags = Array.from(
+                new Set(
+                    diaryCards.flatMap((restaurant) =>
+                        Array.isArray(restaurant.allTags) ? restaurant.allTags : []
+                    )
+                )
+            ).sort((a, b) => a.localeCompare(b));
 
             const diaryCardsWithImageUrls = await Promise.all(
                 diaryCards.map(async (restaurant) => {
@@ -257,6 +133,7 @@ export default function MyDiary() {
             });
 
             invalidateHomePersonalCaches(user.id);
+            invalidateMyDiaryCardsCache(user.id);
 
             await fetchDiaryData();
         } catch (error) {
