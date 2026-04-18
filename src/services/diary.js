@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { saveRestaurantForUser } from "./restaurant";
+import { compressImageFile } from "../utils/imageCompression";
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
@@ -151,15 +152,22 @@ export async function getDishPhotoUrl(photoPath) {
 export async function uploadDishPhoto({ file, userId, restaurantId }) {
     if (!file) return null;
 
+    const compressedFile = await compressImageFile(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.8,
+        outputType: "image/jpeg",
+    });
+
     const filePath = buildDishPhotoPath({
-        originalFileName: file.name,
+        originalFileName: compressedFile.name,
         userId,
         restaurantId,
     });
 
     const { error } = await supabase.storage
         .from(DISH_PHOTOS_BUCKET)
-        .upload(filePath, file, {
+        .upload(filePath, compressedFile, {
             cacheControl: "3600",
             upsert: false,
         });
@@ -170,6 +178,7 @@ export async function uploadDishPhoto({ file, userId, restaurantId }) {
 
     return filePath;
 }
+
 
 export async function removeDishPhoto(photoPath) {
     if (!photoPath) return;

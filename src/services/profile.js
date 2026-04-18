@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { compressImageFile } from "../utils/imageCompression";
 
 const PROFILE_PHOTOS_BUCKET = "profile-photos";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
@@ -76,14 +77,21 @@ export async function getProfilePhotoUrl(photoPath) {
 export async function uploadProfilePhoto({ file, userId }) {
     if (!file) return null;
 
+    const compressedFile = await compressImageFile(file, {
+        maxWidth: 600,
+        maxHeight: 600,
+        quality: 0.8,
+        outputType: "image/jpeg",
+    });
+
     const filePath = buildProfilePhotoPath({
-        originalFileName: file.name,
+        originalFileName: compressedFile.name,
         userId,
     });
 
     const { error } = await supabase.storage
         .from(PROFILE_PHOTOS_BUCKET)
-        .upload(filePath, file, {
+        .upload(filePath, compressedFile, {
             cacheControl: "3600",
             upsert: false,
         });
