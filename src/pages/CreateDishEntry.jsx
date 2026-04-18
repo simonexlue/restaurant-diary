@@ -506,12 +506,6 @@ export default function CreateDishEntry({
             return;
         }
 
-        if (!dateSelected) {
-            setErrorMessage("Please select a date visited.");
-            scrollToTopMessage();
-            return;
-        }
-
         if (!dishName.trim()) {
             setErrorMessage("Please enter a dish name.");
             scrollToTopMessage();
@@ -668,7 +662,9 @@ export default function CreateDishEntry({
                 <div className="bg-white py-6 px-6 rounded-lg border border-stone-200 flex flex-col gap-2">
                     <div className="flex flex-row items-center gap-1.5">
                         <IoLocationOutline size={20} className="relative text-[rgb(203,84,51)]" />
-                        <label className="text-stone-800">Restaurant</label>
+                        <label className="text-stone-800">
+                            Restaurant <span className="text-red-500">*</span>
+                        </label>
                     </div>
 
                     {!selectedRestaurant ? (
@@ -733,7 +729,9 @@ export default function CreateDishEntry({
                     <div className="mb-4 flex flex-col gap-2">
                         <div className="flex flex-row items-center gap-1.5">
                             <BiDish size={20} className="relative text-[rgb(203,84,51)]" />
-                            <label className="text-stone-800">Dish Name</label>
+                            <label className="text-stone-800">
+                                Dish Name <span className="text-red-500">*</span>
+                            </label>
                         </div>
                         <input
                             value={dishName}
@@ -747,7 +745,9 @@ export default function CreateDishEntry({
                     <div className="mb-4 flex flex-col gap-2">
                         <div className="flex flex-row items-center gap-1.5">
                             <FaRegStar size={18} className="relative text-[rgb(203,84,51)]" />
-                            <label className="text-stone-800">Rating</label>
+                            <label className="text-stone-800">
+                                Rating <span className="text-red-500">*</span>
+                            </label>
                         </div>
 
                         <RatingSelector value={rating} onChange={setRating} />
