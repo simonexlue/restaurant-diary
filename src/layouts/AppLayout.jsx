@@ -2,7 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import TopNavigation from "../components/layout/TopNavigation";
 
 export default function AppLayout() {
-    const location = useLocation();
+    const location = useLocation(); //current url
     const isMapPage = location.pathname === "/map";
 
     return (

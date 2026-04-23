@@ -1,6 +1,7 @@
 let loadingPromise = null;
 
 export function loadGoogleMaps() {
+  //already loaded: already resolved promise
   if (window.google && window.google.maps) {
     return Promise.resolve();
   }
@@ -9,7 +10,8 @@ export function loadGoogleMaps() {
     return loadingPromise;
   }
 
-  loadingPromise = new Promise((resolve, reject) => {
+  loadingPromise = new Promise((resolve, reject) => { 
+    //Look in the DOM for a script tag that has been previously inserted
     const existingScript = document.querySelector(
       'script[data-google-maps="true"]'
     );
@@ -22,6 +24,7 @@ export function loadGoogleMaps() {
       return;
     }
 
+    // if no script exists yet create new script
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${
       import.meta.env.VITE_GOOGLE_MAPS_API_KEY

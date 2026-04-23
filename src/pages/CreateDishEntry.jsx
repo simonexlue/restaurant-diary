@@ -22,24 +22,25 @@ import TagsSelector from "../components/diary/TagsSelector";
 import SelectedRestaurantCard from "../components/diary/SelectedRestaurantCard";
 
 export default function CreateDishEntry({
-    mode = "create",
-    initialEntry = null,
-    initialRestaurant = null,
+    mode = "create", // default create
+    initialEntry = null, // for edit mode
+    initialRestaurant = null, // for edit mode or prefilled rows
     onSuccess = null,
     onCancelOverride = null,
-    isModal = false,
+    isModal = false, // can work inside a modal or as a page
 }) {
-    const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile();
+    const { user, loading: profileLoading, errorMessage: profileErrorMessage } = useUserProfile(); // gets current authenticated user
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const restaurantId = mode === "create" ? searchParams.get("restaurantId") : null;
-    const [searchValue, setSearchValue] = useState("");
-    const debouncedSearchValue = useDebouncedValue(searchValue, 350);
 
-    const [suggestions, setSuggestions] = useState([]);
-    const [sessionToken, setSessionToken] = useState(null);
-    const [shouldFetchSuggestions, setShouldFetchSuggestions] = useState(true);
-    const [userLocation, setUserLocation] = useState(null);
+    const [searchParams] = useSearchParams();
+    const restaurantId = mode === "create" ? searchParams.get("restaurantId") : null; //if there is a restaurantId
+    const [searchValue, setSearchValue] = useState("");
+    const debouncedSearchValue = useDebouncedValue(searchValue, 350); // slows down restaurant search so Google autocomplete isn’t called on every keystroke immediately
+
+    const [suggestions, setSuggestions] = useState([]); // stores current autocomplete results
+    const [sessionToken, setSessionToken] = useState(null); // stores google places autocomplete session token
+    const [shouldFetchSuggestions, setShouldFetchSuggestions] = useState(true); // guard flag so autocomplete stops once a restaurant is selected
+    const [userLocation, setUserLocation] = useState(null); //stores browser geolocation so autocomplete can bias nearby restaurants
 
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -51,20 +52,18 @@ export default function CreateDishEntry({
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const datePickerRef = useRef(null);
 
-    const [reviewInput, setReviewInput] = useState("");
+    const [reviewInput, setReviewInput] = useState(""); // review textarea
 
-    const [photoFile, setPhotoFile] = useState(null);
-    const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
+    const [photoFile, setPhotoFile] = useState(null); // actual file object to upload
+    const [photoPreviewUrl, setPhotoPreviewUrl] = useState(""); //browser display only
     const [isDragActive, setIsDragActive] = useState(false);
     const fileInputRef = useRef(null);
-    const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
+    const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false); // remove from storage/db when removed in edit mode
 
     const [dishName, setDishName] = useState("");
     const [dishPrice, setDishPrice] = useState("");
     const [dishPrivacy, setDishPrivacy] = useState("public");
-
     const [rating, setRating] = useState(0);
-
     const [selectedTags, setSelectedTags] = useState([]);
     const [customTagInput, setCustomTagInput] = useState("");
 
@@ -73,6 +72,8 @@ export default function CreateDishEntry({
     const topMessageRef = useRef(null);
 
     useEffect(() => {
+
+        // Creates new autocomplete session token
         async function initializeGoogle() {
             try {
                 await loadGoogleMaps();
@@ -89,6 +90,7 @@ export default function CreateDishEntry({
     useEffect(() => {
         if (!navigator.geolocation) return;
 
+        // get current geolocation
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setUserLocation({
@@ -105,16 +107,19 @@ export default function CreateDishEntry({
     useEffect(() => {
         async function fetchAutocompleteSuggestions() {
             try {
+                // restaurant selected
                 if (!shouldFetchSuggestions) {
                     setSuggestions([]);
                     return;
                 }
 
+                // empty search box
                 if (!debouncedSearchValue.trim()) {
                     setSuggestions([]);
                     return;
                 }
 
+                // make sure code doesn't run before google places is loaded
                 if (
                     !window.google ||
                     !window.google.maps ||
@@ -126,18 +131,20 @@ export default function CreateDishEntry({
                 setLoadingSuggestions(true);
                 setErrorMessage("");
 
+                // use existing token if exists, otherwise create new
                 const token =
                     sessionToken ||
                     new window.google.maps.places.AutocompleteSessionToken();
 
                 const { AutocompleteSuggestion } =
-                    await window.google.maps.importLibrary("places");
+                    await window.google.maps.importLibrary("places"); // the Places library
 
+                // constructing the google autocomplete request
                 const request = {
-                    input: debouncedSearchValue,
-                    includedPrimaryTypes: ["restaurant"],
+                    input: debouncedSearchValue, // what user typed
+                    includedPrimaryTypes: ["restaurant"], // filters to restaurant results from google 
                     sessionToken: token,
-                    locationBias: userLocation
+                    locationBias: userLocation // nudges results towards the user's location if known
                         ? {
                             center: userLocation,
                             radius: 5000,
@@ -145,9 +152,11 @@ export default function CreateDishEntry({
                         : undefined,
                 };
 
+                // Calling Google Places
                 const response =
                     await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
 
+                // format google's response into simple structure
                 const formattedSuggestions = (response.suggestions || [])
                     .filter((item) => item.placePrediction)
                     .map((item) => ({
@@ -169,6 +178,8 @@ export default function CreateDishEntry({
         fetchAutocompleteSuggestions();
     }, [debouncedSearchValue, sessionToken, shouldFetchSuggestions, userLocation]);
 
+    // revokes old object url when component unmounts or preview url changes; clean up effect
+    // prevents lingering urls in memory and/or browser memory leaks
     useEffect(() => {
         return () => {
             if (photoPreviewUrl) {
@@ -177,6 +188,8 @@ export default function CreateDishEntry({
         };
     }, [photoPreviewUrl]);
 
+    // ONLY IN EDIT MODE 
+    // Preloads form state from the existing entry
     useEffect(() => {
         if (mode !== "edit" || !initialEntry) {
             return;
@@ -201,11 +214,13 @@ export default function CreateDishEntry({
         setRemoveExistingPhoto(false);
     }, [mode, initialEntry, initialRestaurant]);
 
+
+    // close date picker on outside click
     useEffect(() => {
         function handleClickOutside(event) {
             if (
                 datePickerRef.current &&
-                !datePickerRef.current.contains(event.target)
+                !datePickerRef.current.contains(event.target) // clicked outside
             ) {
                 setIsDatePickerOpen(false);
             }
@@ -218,8 +233,12 @@ export default function CreateDishEntry({
         };
     }, []);
 
+    // prefill restaurant from URL params
+    // clicking on 'add entry' from a restaurant inside MyDiary
     useEffect(() => {
         async function prefillRestaurant() {
+
+            // only runs if restaurant id exists in the url
             if (!restaurantId) {
                 return;
             }
@@ -228,6 +247,7 @@ export default function CreateDishEntry({
                 setSelectingRestaurant(true);
                 setErrorMessage("");
 
+                //fetch restaurant from db
                 const restaurant = await getRestaurantById(restaurantId);
 
                 setSelectedRestaurant(restaurant);
@@ -244,6 +264,7 @@ export default function CreateDishEntry({
         prefillRestaurant();
     }, [restaurantId]);
 
+    //auto clear success messages after 2.5 seconds
     useEffect(() => {
         if (!successMessage) return;
 
@@ -254,6 +275,7 @@ export default function CreateDishEntry({
         return () => clearTimeout(timeoutId);
     }, [successMessage]);
 
+    // called when suggestion is clicked
     async function handleSuggestionClick(suggestion) {
         try {
             setSelectingRestaurant(true);
@@ -262,17 +284,19 @@ export default function CreateDishEntry({
             setSuggestions([]);
             setShouldFetchSuggestions(false);
 
+            // converts the google prediction into a full google place object
             const place = suggestion.placePrediction.toPlace();
 
             await place.fetchFields({
                 fields: ["id", "displayName", "formattedAddress", "location"],
             });
 
+            // checks to see if google place already exists in restaurants table, if not, create
             const restaurant = await getOrCreateRestaurantFromGooglePlace(place);
 
             setSelectedRestaurant(restaurant);
             setSearchValue(restaurant.name || "");
-            setSessionToken(new window.google.maps.places.AutocompleteSessionToken());
+            setSessionToken(new window.google.maps.places.AutocompleteSessionToken()); //start fresh session token
         } catch (error) {
             console.error(error);
             setErrorMessage(error.message || "Failed to select restaurant.");
@@ -281,6 +305,7 @@ export default function CreateDishEntry({
         }
     }
 
+    // resets the restaurant name / selected suggestion
     function handleClearSelectedRestaurant() {
         setSelectedRestaurant(null);
         setSearchValue("");
@@ -297,41 +322,47 @@ export default function CreateDishEntry({
         setDateSelected(date);
     }
 
+    // reads the first chosen file from the browser photo picker and passes it to the main photo-selection handler.
     function handlePhotoInputChange(event) {
         const file = event.target.files?.[0];
         handleSelectedPhoto(file);
-    }
-
-    function handleDragEnter(event) {
-        event.preventDefault();
-        setIsDragActive(true);
     }
 
     function handleChooseFileClick() {
         fileInputRef.current?.click();
     }
 
+    // stop the browser’s default drag-drop behavior and toggle drag styling
+    function handleDragEnter(event) {
+        event.preventDefault();
+        setIsDragActive(true);
+    }
+
+    // stop the browser’s default drag-drop behavior and toggle drag styling
     function handleDragOver(event) {
         event.preventDefault();
         setIsDragActive(true);
     }
 
+    // stop the browser’s default drag-drop behavior and toggle drag styling
     function handleDragLeave(event) {
         event.preventDefault();
         setIsDragActive(false);
     }
 
+    // handles file drop into the drop zone
     function handleDrop(event) {
         event.preventDefault();
         setIsDragActive(false);
 
         const file = event.dataTransfer.files?.[0];
-        handleSelectedPhoto(file);
+        handleSelectedPhoto(file); //pass to main handler again
     }
 
     function handleSelectedPhoto(file) {
         if (!file) return;
 
+        // reject non-image files
         if (!file.type.startsWith("image/")) {
             setErrorMessage("Please upload an image file.");
             return;
@@ -342,6 +373,7 @@ export default function CreateDishEntry({
         setPhotoFile(file);
         setRemoveExistingPhoto(false);
 
+        // clean up old preview urls before replacing
         if (photoPreviewUrl) {
             URL.revokeObjectURL(photoPreviewUrl);
         }
@@ -350,10 +382,13 @@ export default function CreateDishEntry({
         setPhotoPreviewUrl(previewUrl);
     }
 
+
+    // tag comparisons are case-insensitive
     function normalizeTag(tag) {
         return tag.trim().toLowerCase();
     }
 
+    // toggles a suggested tag on/off
     function toggleTag(tagLabel) {
         const normalized = normalizeTag(tagLabel);
 
@@ -362,10 +397,12 @@ export default function CreateDishEntry({
                 (tag) => normalizeTag(tag) === normalized
             );
 
+            // unselect if selected
             if (alreadySelected) {
                 return prev.filter((tag) => normalizeTag(tag) !== normalized);
             }
 
+            // add
             return [...prev, tagLabel.trim()];
         });
     }
@@ -380,20 +417,23 @@ export default function CreateDishEntry({
 
     function handleAddCustomTag() {
         const trimmed = customTagInput.trim();
-        if (!trimmed) return;
+        if (!trimmed) return; //empty
 
-        const normalized = normalizeTag(trimmed);
+        const normalized = normalizeTag(trimmed); //ignore case/whitespace
         const alreadySelected = selectedTags.some(
             (tag) => normalizeTag(tag) === normalized
         );
 
+        // add if new
         if (!alreadySelected) {
             setSelectedTags((prev) => [...prev, trimmed]);
         }
 
+        // clear input
         setCustomTagInput("");
     }
 
+    // Pressing Enter inside the custom tag input adds the tag instead of submitting the whole form
     function handleCustomTagKeyDown(event) {
         if (event.key === "Enter") {
             event.preventDefault();
@@ -401,12 +441,14 @@ export default function CreateDishEntry({
         }
     }
 
+    // if a parent provided a custom cancel behavior, use that and stop.
     function handleCancel() {
         if (onCancelOverride) {
             onCancelOverride();
             return;
         }
 
+        // if theres an id in params navigate back to that restaurant page
         if (selectedRestaurant?.id) {
             navigate(`/restaurant/${selectedRestaurant.id}`);
             return;
@@ -415,10 +457,12 @@ export default function CreateDishEntry({
         navigate("/diary");
     }
 
+    // FOR BATCH SAVES 
     function resetDishFieldsForAnotherEntry() {
         setErrorMessage("");
         setSuccessMessage("");
 
+        // ONLY CLEARING DISH-SPECIFIC INPUTS
         setDishName("");
         setDishPrice("");
         setRating(0);
@@ -441,6 +485,7 @@ export default function CreateDishEntry({
         }
     }
 
+    // FULL RESET; AFTER NORMAL FINISHED SAVE
     function resetForm() {
         setSearchValue("");
         setSuggestions([]);
@@ -479,6 +524,7 @@ export default function CreateDishEntry({
         }
     }
 
+    //scrolls the page to the message box
     function scrollToTopMessage() {
         if (topMessageRef.current) {
             topMessageRef.current.scrollIntoView({
@@ -488,6 +534,7 @@ export default function CreateDishEntry({
             return;
         }
 
+        // just scroll to the top if the message box ref doesnt exist
         window.scrollTo({
             top: 0,
             behavior: "smooth",
@@ -500,18 +547,21 @@ export default function CreateDishEntry({
         setErrorMessage("");
         setSuccessMessage("");
 
+        // validation; cant be empty
         if (!selectedRestaurant) {
             setErrorMessage("Please select a restaurant.");
             scrollToTopMessage();
             return;
         }
 
+        // cant be empty
         if (!dishName.trim()) {
             setErrorMessage("Please enter a dish name.");
             scrollToTopMessage();
             return;
         }
 
+        // cant be 0; 0 means nothing selected
         if (!rating || rating === 0) {
             setErrorMessage("Please select a rating.");
             scrollToTopMessage();
@@ -519,6 +569,7 @@ export default function CreateDishEntry({
         }
 
         try {
+            // saveModes: edit, finish, addAnother 
             setSaveAction(mode === "edit" ? "edit" : saveMode);
 
             if (!user) {
@@ -527,6 +578,7 @@ export default function CreateDishEntry({
 
             let savedEntry;
 
+            // calls update service
             if (mode === "edit" && initialEntry) {
                 savedEntry = await updateDishEntryWithOptionalPhoto({
                     entryId: initialEntry.id,
@@ -544,6 +596,7 @@ export default function CreateDishEntry({
                     removeExistingPhoto,
                 });
             } else {
+                // calls create service
                 savedEntry = await createDishEntryWithOptionalPhoto({
                     userId: user.id,
                     restaurantId: selectedRestaurant.id,
@@ -558,6 +611,7 @@ export default function CreateDishEntry({
                 });
             }
 
+            // invalidate home cache so that home page updates with fresh info after update
             invalidateHomePersonalCaches(user.id);
 
             if (onSuccess) {
@@ -570,6 +624,7 @@ export default function CreateDishEntry({
                 return;
             }
 
+            // clear fields, keep current restaurant 
             if (saveMode === "addAnother") {
                 const restaurantName = selectedRestaurant.name || "this restaurant";
                 resetDishFieldsForAnotherEntry();
@@ -579,6 +634,8 @@ export default function CreateDishEntry({
             }
 
             resetForm();
+
+            // if normal create -> go to the diary for this restaurant
             navigate(`/restaurant/${selectedRestaurant.id}`);
         } catch (error) {
             setErrorMessage(
@@ -590,9 +647,11 @@ export default function CreateDishEntry({
         }
     }
 
+    // clear any newly selected file
     function handleRemovePhoto() {
-        setPhotoFile(null);
+        setPhotoFile(null); // clear file
 
+        // clean up existing preview url
         if (photoPreviewUrl) {
             URL.revokeObjectURL(photoPreviewUrl);
         }
@@ -605,6 +664,8 @@ export default function CreateDishEntry({
         }
     }
 
+    //loading and profile guard returns
+    // ensures form doesnt render until the current user/profile state is ready
     if (profileLoading) {
         return <p>Loading...</p>;
     }
@@ -618,6 +679,8 @@ export default function CreateDishEntry({
             <div className="flex flex-row justify-between items-start">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl text-stone-700">
+
+                        {/* conditional render of title */}
                         {mode === "edit" ? "Edit Entry" : "New Entry"}
                     </h1>
                     <p className="text-[rgb(137,122,114)]">
@@ -634,6 +697,7 @@ export default function CreateDishEntry({
                 </button>
             </div>
 
+            {/* show success and error message */}
             {(errorMessage || successMessage) && (
                 <div
                     ref={topMessageRef}

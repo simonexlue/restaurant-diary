@@ -21,5 +21,6 @@ export default function ProtectedRoute({ children }) {
         return <Navigate to="/login" replace />
     }
 
+    // if authenticated render component/page
     return children
 }

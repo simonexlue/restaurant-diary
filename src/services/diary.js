@@ -3,8 +3,8 @@ import { saveRestaurantForUser } from "./restaurant";
 import { compressImageFile } from "../utils/imageCompression";
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
-const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60;
-const SIGNED_URL_REFRESH_BUFFER_MS = 60 * 1000;
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60; // 1hr
+const SIGNED_URL_REFRESH_BUFFER_MS = 60 * 1000; // 1 min
 
 const dishPhotoUrlCache = new Map();
 const myDiaryCardsCache = new Map();
@@ -332,6 +332,7 @@ function buildDishPhotoPath({ originalFileName, userId, restaurantId }) {
         ? safeFileName.split(".").pop()
         : "jpg";
 
+        // build safe file name with date, random uuid, and file extension
     const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
     return `${userId}/${restaurantId}/${fileName}`;
 }
@@ -346,6 +347,8 @@ function formatDateForPostgres(date) {
     return `${year}-${month}-${day}`;
 }
 
+// ensures file name is a string
+// lowercase everything, no spaces, remove special characters
 function sanitizeFileName(fileName) {
     return String(fileName)
         .toLowerCase()
@@ -785,13 +788,15 @@ export async function getMyDiaryCards(userId, options = {}) {
         throw new Error("User id is required.");
     }
 
-    const { forceRefresh = false } = options;
+    const { forceRefresh = false } = options; //if true, skip cache and fetch fresh data
     const cacheKey = makeMyDiaryCardsCacheKey(userId);
 
+    //checks if its in cache -> returns that
     if (!forceRefresh && myDiaryCardsCache.has(cacheKey)) {
         return myDiaryCardsCache.get(cacheKey);
     }
 
+    // if cache miss, fetch from db
     const { data, error } = await supabase.rpc("get_my_diary_cards", {
         p_user_id: userId,
     });
@@ -815,7 +820,7 @@ export async function getMyDiaryCards(userId, options = {}) {
         allTags: Array.isArray(row.all_tags) ? row.all_tags : [],
     }));
 
-    myDiaryCardsCache.set(cacheKey, result);
+    myDiaryCardsCache.set(cacheKey, result); //store new fetch in cache
     return result;
 }
 

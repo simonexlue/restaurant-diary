@@ -16,9 +16,11 @@ import {
     renderUnifiedMarkers,
 } from "../utils/mapMarkers";
 
+// combines user saved restaurants with friend-visible restaurant pins into one array
 function mergeRestaurantPins(savedRestaurants, friendRestaurants) {
     const mergedMap = new Map();
 
+    //user's restaurants
     for (const restaurant of savedRestaurants || []) {
         mergedMap.set(restaurant.id, {
             restaurantId: restaurant.id,
@@ -35,9 +37,11 @@ function mergeRestaurantPins(savedRestaurants, friendRestaurants) {
         });
     }
 
+    //friends
     for (const restaurant of friendRestaurants || []) {
         const existing = mergedMap.get(restaurant.restaurantId);
 
+        //already in merged list
         if (existing) {
             mergedMap.set(restaurant.restaurantId, {
                 ...existing,
@@ -48,6 +52,7 @@ function mergeRestaurantPins(savedRestaurants, friendRestaurants) {
                 averageRating: restaurant.averageRating ?? existing.averageRating ?? null,
             });
         } else {
+            //new row if doesnt already exist
             mergedMap.set(restaurant.restaurantId, {
                 restaurantId: restaurant.restaurantId,
                 google_place_id: restaurant.google_place_id || null,
@@ -67,11 +72,14 @@ function mergeRestaurantPins(savedRestaurants, friendRestaurants) {
     return Array.from(mergedMap.values());
 }
 
+// updates merged list after user saves new restaurant
 function upsertSavedRestaurantIntoMerged(existingRestaurants, savedRestaurant) {
+    //check if it already exists
     const existingIndex = existingRestaurants.findIndex(
         (restaurant) => restaurant.restaurantId === savedRestaurant.id
     );
 
+    //if not found
     if (existingIndex === -1) {
         return [
             {
@@ -91,9 +99,11 @@ function upsertSavedRestaurantIntoMerged(existingRestaurants, savedRestaurant) {
         ];
     }
 
+    //if found, copy array , get existing row
     const updatedRestaurants = [...existingRestaurants];
     const existing = updatedRestaurants[existingIndex];
 
+    //update row 
     updatedRestaurants[existingIndex] = {
         ...existing,
         restaurantId: savedRestaurant.id,
@@ -103,7 +113,7 @@ function upsertSavedRestaurantIntoMerged(existingRestaurants, savedRestaurant) {
         lat: savedRestaurant.lat,
         lng: savedRestaurant.lng,
         source: savedRestaurant.source,
-        isSavedByUser: true,
+        isSavedByUser: true, //* change pin to user's
     };
 
     return updatedRestaurants;
@@ -113,8 +123,8 @@ export default function MapPage() {
     const navigate = useNavigate();
     const { user, errorMessage: userErrorMessage } = useUserProfile();
 
-    const mapRef = useRef(null);
-    const mapInstanceRef = useRef(null);
+    const mapRef = useRef(null); //dom element that Maps mounts into
+    const mapInstanceRef = useRef(null); //actual Maps instance
     const markersRef = useRef([]);
     const tempMarkerRef = useRef(null);
     const infoWindowRef = useRef(null);
@@ -166,8 +176,9 @@ export default function MapPage() {
 
                 if (!mapRef.current) return;
 
+                //create map instance inside mapRef div
                 const map = new window.google.maps.Map(mapRef.current, {
-                    center: { lat: 49.2827, lng: -123.1207 },
+                    center: { lat: 49.2827, lng: -123.1207 }, //default center is vancouver
                     zoom: 12,
                     mapTypeControl: false,
                     streetViewControl: false,
@@ -176,14 +187,17 @@ export default function MapPage() {
                 });
 
                 mapInstanceRef.current = map;
+                //create reusable info window
                 infoWindowRef.current = new window.google.maps.InfoWindow();
 
+                //helps map render properly; may sometimes be incorrectly sized
                 setTimeout(() => {
                     if (mapInstanceRef.current) {
                         window.google.maps.event.trigger(mapInstanceRef.current, "resize");
                     }
                 }, 100);
 
+                // if browser supports geolocation, request current position
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
@@ -193,8 +207,10 @@ export default function MapPage() {
 
                             if (!isMounted) return;
 
+                            // user for bias later
                             setUserLocation(coords);
 
+                            // if map exists already, trigger resize, center on userLocation
                             if (mapInstanceRef.current) {
                                 window.google.maps.event.trigger(mapInstanceRef.current, "resize");
                                 mapInstanceRef.current.setCenter(coords);
@@ -207,28 +223,34 @@ export default function MapPage() {
                     );
                 }
 
+                // create token for search
                 setSessionToken(
                     new window.google.maps.places.AutocompleteSessionToken()
                 );
 
+                // click listener only acts when manual pin mode is on
                 map.addListener("click", (event) => {
                     if (!isDropPinModeRef.current) return;
                     if (!event.latLng) return;
 
+                    //extract clicked coords
                     const lat = event.latLng.lat();
                     const lng = event.latLng.lng();
 
+                    //begin manual restaurant save flow
                     openManualPinFlow(lat, lng);
                 });
 
+                // click listener only acts when manual pin mode is off
                 map.addListener("click", (event) => {
                     if (isDropPinModeRef.current) return;
-                    if (!event.placeId) return;
+                    if (!event.placeId) return; //ignore if click has no google placeId
 
-                    event.stop();
+                    event.stop(); //prevent default google maps behaviour for that click
 
                     const service = new window.google.maps.places.PlacesService(map);
 
+                    // get details for the clicked google place
                     service.getDetails(
                         {
                             placeId: event.placeId,
@@ -247,6 +269,7 @@ export default function MapPage() {
                             const lat = place.geometry.location.lat();
                             const lng = place.geometry.location.lng();
 
+                            // only info we need
                             const normalizedPlace = {
                                 id: place.place_id,
                                 displayName: place.name || "",
@@ -260,6 +283,7 @@ export default function MapPage() {
                             closeInfoWindow();
                             placeTemporaryMarker({ lat, lng });
 
+                            // update states for selected google place
                             setSelectedGooglePlace(normalizedPlace);
                             setGoogleName(normalizedPlace.displayName || "");
                             setGoogleAddress(normalizedPlace.formattedAddress || "");
@@ -274,11 +298,13 @@ export default function MapPage() {
                                 mapInstanceRef.current.setZoom(15);
                             }
 
+                            //open the popup window for that place
                             openSelectedPlaceInfoWindow(normalizedPlace);
                         }
                     );
                 });
 
+                // initial data fetch for users saved restaurants and friend-visible pin data
                 const [savedRestaurantRows, friendRestaurantRows] = await Promise.all([
                     fetchSavedRestaurantsForUser(user.id),
                     fetchFriendRestaurantPins(),
@@ -287,7 +313,7 @@ export default function MapPage() {
                 if (!isMounted) return;
 
                 setRestaurants(
-                    mergeRestaurantPins(savedRestaurantRows, friendRestaurantRows)
+                    mergeRestaurantPins(savedRestaurantRows, friendRestaurantRows) //merge into unified restaurant array for marker rendering
                 );
             } catch (error) {
                 console.error(error);
@@ -301,6 +327,7 @@ export default function MapPage() {
 
         initializeMapPage();
 
+        //clean up for unmounts or effect reruns
         return () => {
             isMounted = false;
             clearMarkers(markersRef);
@@ -315,6 +342,7 @@ export default function MapPage() {
         };
     }, [user]);
 
+    //render markers
     useEffect(() => {
         if (!mapInstanceRef.current) return;
 
@@ -322,10 +350,12 @@ export default function MapPage() {
             ? restaurants
             : restaurants.filter((restaurant) => restaurant.isSavedByUser);
 
+        //render visible marker set
         renderUnifiedMarkers({
             restaurantRows: visibleRestaurants,
             map: mapInstanceRef.current,
             markersRef,
+            // on marker click, open pinmodal
             onMarkerClick: (restaurant) => {
                 setSelectedPin(restaurant);
                 setSelectedFriend(null);
@@ -395,8 +425,11 @@ export default function MapPage() {
         fetchAutocompleteSuggestions();
     }, [debouncedSearchValue, sessionToken, shouldFetchSuggestions, userLocation]);
 
+    //quick add inside infowindow (google place only)
     useEffect(() => {
         function handleQuickAddClick(event) {
+            //attach document level click listener to detect the button click 
+            // infowindow content is raw html string, not part of react's normal jsx event system
             const quickAddButton = event.target.closest(
                 "[data-quick-add-google-place]"
             );
@@ -426,10 +459,12 @@ export default function MapPage() {
     function placeTemporaryMarker(position) {
         if (!mapInstanceRef.current) return;
 
+        // remove old temp marker if it exists
         if (tempMarkerRef.current) {
             tempMarkerRef.current.setMap(null);
         }
 
+        //create new temp marker at selected manual position
         tempMarkerRef.current = new window.google.maps.Marker({
             map: mapInstanceRef.current,
             position,
@@ -445,6 +480,7 @@ export default function MapPage() {
         }
     }
 
+    // triggered when clicking map in drop-pin mode
     function openManualPinFlow(lat, lng) {
         closeInfoWindow();
         placeTemporaryMarker({ lat, lng });
@@ -452,19 +488,24 @@ export default function MapPage() {
         setManualPin({ lat, lng });
         setManualName("");
         setManualAddress("");
-        setShowManualSave(true);
+        setShowManualSave(true); //open modal
 
+        // clear googleplace related states so flows dont conflict
         setShowGoogleSave(false);
         setSelectedGooglePlace(null);
         setSuggestions([]);
         setShouldFetchSuggestions(false);
     }
 
+    //opens google place preview with quick add button
     function openSelectedPlaceInfoWindow(place) {
         if (!mapInstanceRef.current || !tempMarkerRef.current || !infoWindowRef.current) {
             return;
         }
 
+        //raw html string for info window content
+        //info window is from google maps api, not part of react, react cannot render jsx inside it directly
+        //injecting the html string straight into the dom to show content i need
         const content = `
             <div style="min-width: 240px; padding: 0; margin: 0; font-family: Arial, sans-serif;">
                 <div style="padding: 0; margin: 0;">
