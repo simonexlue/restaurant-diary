@@ -97,17 +97,20 @@ export default function DiaryCard({
                     </div>
                 )}
 
-                {/* DELETE BUTTON */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete?.();
-                    }}
-                    disabled={isDeleting}
-                    className="absolute top-2 right-2 rounded-full bg-white/90 p-2 shadow hover:bg-red-50"
-                >
-                    <GoTrash className="text-red-600" size={16} />
-                </button>
+                {/* DELETE BUTTON - only shown when the viewer owns this record */}
+                {onDelete && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete();
+                        }}
+                        disabled={isDeleting}
+                        className="absolute top-2 right-2 rounded-full bg-white/90 p-2 shadow hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <GoTrash className="text-red-600" size={16} />
+                    </button>
+                )}
             </div>
 
             <div className="flex flex-1 flex-col px-3 py-3 gap-1">
