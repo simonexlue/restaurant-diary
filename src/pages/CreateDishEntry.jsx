@@ -7,6 +7,13 @@ import { useNavigate } from "react-router-dom";
 import useUserProfile from "../hooks/useUserProfile";
 import { useSearchParams } from "react-router-dom";
 import { invalidateHomePersonalCaches } from "../services/home";
+import {
+    validateDishEntry,
+    sanitizePriceInput,
+    getEndOfToday,
+    PRICE_MIN,
+    PRICE_MAX,
+} from "../utils/dishEntryValidation";
 
 import { IoPricetagsOutline, IoLockClosedOutline, IoLocationOutline } from "react-icons/io5";
 import { BiDish } from "react-icons/bi";
@@ -322,6 +329,12 @@ export default function CreateDishEntry({
         setDateSelected(date);
     }
 
+    // strips characters the number input still allows (e, E, +, -) and
+    // caps decimal places before the value reaches state
+    function handlePriceChange(event) {
+        setDishPrice(sanitizePriceInput(event.target.value));
+    }
+
     // reads the first chosen file from the browser photo picker and passes it to the main photo-selection handler.
     function handlePhotoInputChange(event) {
         const file = event.target.files?.[0];
@@ -547,23 +560,17 @@ export default function CreateDishEntry({
         setErrorMessage("");
         setSuccessMessage("");
 
-        // validation; cant be empty
-        if (!selectedRestaurant) {
-            setErrorMessage("Please select a restaurant.");
-            scrollToTopMessage();
-            return;
-        }
+        // shared rules, so create and edit modes validate identically
+        const { firstError, isValid } = validateDishEntry({
+            selectedRestaurant,
+            dishName,
+            rating,
+            price: dishPrice,
+            dateTried: dateSelected,
+        });
 
-        // cant be empty
-        if (!dishName.trim()) {
-            setErrorMessage("Please enter a dish name.");
-            scrollToTopMessage();
-            return;
-        }
-
-        // cant be 0; 0 means nothing selected
-        if (!rating || rating === 0) {
-            setErrorMessage("Please select a rating.");
+        if (!isValid) {
+            setErrorMessage(firstError);
             scrollToTopMessage();
             return;
         }
@@ -785,6 +792,7 @@ export default function CreateDishEntry({
                         isOpen={isDatePickerOpen}
                         onToggle={() => setIsDatePickerOpen((prev) => !prev)}
                         datePickerRef={datePickerRef}
+                        maxDate={getEndOfToday()}
                     />
                 </div>
 
@@ -824,8 +832,18 @@ export default function CreateDishEntry({
                         </div>
                         <input
                             value={dishPrice}
-                            onChange={(e) => setDishPrice(e.target.value)}
+                            onChange={handlePriceChange}
+                            // block the characters a number input otherwise accepts
+                            onKeyDown={(e) => {
+                                if (["e", "E", "+", "-"].includes(e.key)) {
+                                    e.preventDefault();
+                                }
+                            }}
                             type="number"
+                            inputMode="decimal"
+                            min={PRICE_MIN}
+                            max={PRICE_MAX}
+                            step="0.01"
                             placeholder="0.00"
                             className="h-10 w-full rounded-lg border border-gray-300 px-3 bg-[rgb(248,245,242)] focus:outline-[rgb(203,84,51)]"
                         />

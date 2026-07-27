@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { saveRestaurantForUser } from "./restaurant";
 import { compressImageFile } from "../utils/imageCompression";
+import { validatePrice, validateDateTried } from "../utils/dishEntryValidation";
 
 const DISH_PHOTOS_BUCKET = "dish-photos";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60; // 1hr
@@ -293,6 +294,8 @@ function buildDishEntryPayload({
     tags,
     photoPath,
 }) {
+    assertDateTriedIsNotInFuture(dateTried);
+
     return {
         user_id: userId,
         restaurant_id: restaurantId,
@@ -307,13 +310,35 @@ function buildDishEntryPayload({
     };
 }
 
+// Server-side safety net. The form validates first, but these guards make sure
+// invalid values can never be written even if the UI is bypassed.
 function normalizePrice(price) {
     if (price === "" || price === null || price === undefined) {
         return null;
     }
 
+    const priceError = validatePrice(price);
+
+    if (priceError) {
+        throw new Error(priceError);
+    }
+
     const numericPrice = Number(price);
-    return Number.isNaN(numericPrice) ? null : numericPrice;
+
+    if (Number.isNaN(numericPrice)) {
+        return null;
+    }
+
+    // guard against float artefacts like 12.340000000000001
+    return Math.round(numericPrice * 100) / 100;
+}
+
+function assertDateTriedIsNotInFuture(dateTried) {
+    const dateError = validateDateTried(dateTried);
+
+    if (dateError) {
+        throw new Error(dateError);
+    }
 }
 
 function normalizeTags(tags) {

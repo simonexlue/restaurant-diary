@@ -6,7 +6,11 @@ export default function DateVisitedPicker({
     isOpen,
     onToggle,
     datePickerRef,
+    maxDate,
 }) {
+    // grey out and block any day after maxDate (used to prevent future visits)
+    const disabledDays = maxDate ? { after: maxDate } : undefined;
+
     return (
         <div ref={datePickerRef} className="relative">
             <button
@@ -25,6 +29,8 @@ export default function DateVisitedPicker({
                         mode="single"
                         selected={value}
                         onSelect={onSelect}
+                        disabled={disabledDays}
+                        endMonth={maxDate}
                         className="w-90 bg-white shadow-lg rounded-lg p-5 border border-gray-200"
                     />
                 </div>
