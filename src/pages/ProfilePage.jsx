@@ -372,7 +372,10 @@ export default function ProfilePage() {
 
             {/* Stats: Entries, Places, Friends  */}
             <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1">
+                <div
+                    className="flex flex-col items-center bg-white shadow-xs rounded-lg p-6 gap-1 hover:cursor-pointer hover:border hover:border-[rgb(203,84,51)]"
+                    onClick={() => handlePlacesClick()}
+                >
                     <IoBookOutline className="text-[rgb(203,84,51)] text-lg" />
                     <p className="text-lg text-stone-800 font-semibold">{totalEntries}</p>
                     <p className="text-sm text-[rgb(137,122,114)]">Entries</p>
